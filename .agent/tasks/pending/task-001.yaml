@@ -1,0 +1,23 @@
+id: task-001
+title: 创建 hello.py 模块
+priority: P0
+role: coder
+status: pending
+created_at: 2026-03-14T10:00:00Z
+created_by: pm
+
+acceptance_criteria:
+  - 创建 src/hello.py 文件
+  - 实现 say_hello(name) 函数
+  - 编写测试文件 tests/test_hello.py
+  - 测试通过
+
+description: |
+  创建一个简单的 hello.py 模块：
+
+  1. 在 src/ 目录下创建 hello.py
+  2. 实现 say_hello(name: str) -> str 函数
+     - 输入：名字字符串
+     - 输出：Hello, {name}!
+  3. 在 tests/ 目录下创建测试文件
+  4. 运行测试确保通过

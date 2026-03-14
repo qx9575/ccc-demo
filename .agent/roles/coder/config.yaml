@@ -1,0 +1,24 @@
+name: 程序员
+role: coder
+level: mid
+
+model:
+  provider: zhipu
+  model: glm-4-flash
+
+capabilities:
+  allowed_dirs:
+    - src/
+    - tests/
+  readonly_dirs:
+    - .agent/shared-memory/
+
+tools:
+  builtin:
+    - file_read
+    - file_write
+    - shell
+
+collaboration:
+  can_create_tasks: true
+  report_to: pm

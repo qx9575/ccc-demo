@@ -1,0 +1,19 @@
+name: 代码审查员
+role: reviewer
+level: senior
+
+model:
+  provider: zhipu
+  model: glm-4-plus
+
+capabilities:
+  allowed_dirs:
+    - src/
+    - tests/
+  readonly_dirs:
+    - .agent/shared-memory/
+
+tools:
+  builtin:
+    - file_read
+    - shell

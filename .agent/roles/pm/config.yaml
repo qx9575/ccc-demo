@@ -1,0 +1,24 @@
+name: 项目经理
+role: pm
+level: senior
+
+model:
+  provider: zhipu
+  model: glm-4-plus
+
+capabilities:
+  allowed_dirs:
+    - .agent/tasks/
+    - .agent/shared-memory/
+    - docs/
+
+tools:
+  builtin:
+    - file_read
+    - file_write
+
+collaboration:
+  can_create_tasks: true
+  can_assign_to:
+    - coder
+    - reviewer
