@@ -1,0 +1,19 @@
+id: task-004
+title: 创建 validators 模块
+priority: P1
+role: coder
+status: pending
+created_at: 2026-03-16T15:00:00Z
+created_by: pm
+
+acceptance_criteria:
+  - 创建 src/validators.py 文件
+  - 实现 validate_email() 函数
+  - 实现 validate_phone() 函数
+  - 编写测试
+
+description: |
+  创建验证器模块：
+  
+  1. validate_email(email) - 验证邮箱格式
+  2. validate_phone(phone) - 验证手机号格式
