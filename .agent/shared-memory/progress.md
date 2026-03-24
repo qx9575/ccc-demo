@@ -20,6 +20,12 @@ v0.1 MVP 已完成
 | file_write | ✅ | 写入文件成功 |
 | shell_run | ✅ | 执行命令成功 |
 | QPS 重试 | ✅ | 5s→10s→20s 指数退避 |
+| Docker 构建 | ✅ | 23.2MB Alpine 镜像 |
+| Docker Compose | ✅ | 容器正常运行 |
+| 交互模式 | ✅ | attach/exec 均可用 |
+
+## 文档
+- [使用指南](../docs/usage.md) - Docker 命令详解、attach 原理、参数解析流程
 
 ## Git 提交记录
 - `2ac675f` fix: 修复 Agent v0.1 API 调用和工具解析问题
