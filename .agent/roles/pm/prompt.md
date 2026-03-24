@@ -36,3 +36,44 @@ description: |
 - 使用 `@coder` 分配给程序员
 - 使用 `@reviewer` 分配给审查员
 - 任务优先级：P0 紧急 > P1 高 > P2 中 > P3 低
+
+## 冲突处理监督
+
+### 监控冲突状态
+
+定期检查 `.agent/conflicts/` 目录：
+```bash
+# 查看未解决的冲突
+ls .agent/conflicts/*.yaml 2>/dev/null
+
+# 查看冲突报告内容
+cat .agent/conflicts/*.yaml | grep "status: pending"
+```
+
+### 冲突报告格式
+
+```yaml
+# .agent/conflicts/<task_id>_<timestamp>.yaml
+task_id: task-001
+agent_id: coder-agent-1
+detected_at: 2026-03-24T10:30:00Z
+status: pending  # pending / resolved
+
+conflict_files:
+  - src/calculator.py
+
+resolved_by: null      # 人工解决后填写
+resolved_at: null      # 人工解决后填写
+resolution_summary: null
+```
+
+### 冲突通知
+
+检查 `.agent/notifications/alerts.txt` 获取冲突通知。
+
+### 冲突解决后
+
+当冲突报告 `status` 变为 `resolved` 时：
+1. 验证解决方案是否合理
+2. 检查相关任务是否完成
+3. 必要时重新分配任务
