@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  agent-coder:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: agent-v0.1:latest
+    container_name: agent-coder
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://maas-api.ai-yuanjing.com/openapi/compatible-mode/v1}
+      - OPENAI_MODEL=${OPENAI_MODEL:-glm-5}
+      - AGENT_ID=coder-agent-1
+      - AGENT_ROLE=coder
+      - AGENT_NAME=程序员
+      - WORKSPACE=/workspace
+    volumes:
+      - ./:/workspace
+      - ./roles:/app/roles:ro
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    command: ["/app/agent-v0.1.sh"]
+
+  # PM Agent（v0.2 多 Agent 时启用）
+  # agent-pm:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   image: agent-v0.1:latest
+  #   container_name: agent-pm
+  #   environment:
+  #     - OPENAI_API_KEY=${OPENAI_API_KEY}
+  #     - AGENT_ID=pm-agent-1
+  #     - AGENT_ROLE=pm
+  #     - AGENT_NAME=项目经理
+  #   volumes:
+  #     - ./:/workspace
+  #   working_dir: /workspace
+  #   stdin_open: true
+  #   tty: true
+  #   command: ["/app/agent-v0.1.sh"]
