@@ -44,4 +44,4 @@ RUN mkdir -p /workspace/.agent/{tasks,conflicts,notifications,shared-memory}
 
 # 入口
 ENTRYPOINT ["/app/agent-v0.1.sh"]
-CMD ["--help"]
+# 默认启动交互模式（无参数）

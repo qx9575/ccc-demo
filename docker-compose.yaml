@@ -17,11 +17,10 @@ services:
       - WORKSPACE=/workspace
     volumes:
       - ./:/workspace
-      - ./roles:/app/roles:ro
     working_dir: /workspace
     stdin_open: true
     tty: true
-    command: ["/app/agent-v0.1.sh"]
+    # 启动交互模式（无参数）
 
   # PM Agent（v0.2 多 Agent 时启用）
   # agent-pm:
