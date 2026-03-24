@@ -12,3 +12,12 @@ def parse_json(json_str: str) -> dict:
         return json.loads(json_str)
     except json.JSONDecodeError:
         return {}
+
+# Agent 1 添加的函数
+def format_upper(text: str) -> str:
+    """Agent 1: 转大写"""
+    return text.upper()
+
+def format_lower(text: str) -> str:
+    """Agent 1: 转小写"""
+    return text.lower()
