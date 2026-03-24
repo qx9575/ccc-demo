@@ -32,10 +32,10 @@ ENV OPENAI_BASE_URL="https://maas-api.ai-yuanjing.com/openapi/compatible-mode/v1
 ENV OPENAI_MODEL="glm-5"
 ENV WORKSPACE="/workspace"
 
-# 复制脚本
+# 复制脚本和配置
 COPY scripts/agent-v0.1.sh /app/agent-v0.1.sh
 COPY scripts/agent-loop-with-conflict-recovery.sh /app/agent-loop-with-conflict-recovery.sh
-COPY roles/ /app/roles/
+COPY .agent/roles/ /app/roles/
 
 RUN chmod +x /app/*.sh
 

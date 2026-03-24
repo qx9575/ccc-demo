@@ -340,13 +340,20 @@ handle_tool_calls() {
 
 # 加载角色配置
 load_role_config() {
-    local role_file=".agent/roles/${AGENT_ROLE}/prompt.md"
+    # 检查多个可能的角色配置路径
+    local role_file=""
+    for path in ".agent/roles/${AGENT_ROLE}/prompt.md" "/app/roles/${AGENT_ROLE}/prompt.md"; do
+        if [ -f "$path" ]; then
+            role_file="$path"
+            break
+        fi
+    done
 
-    if [ -f "$role_file" ]; then
+    if [ -n "$role_file" ]; then
         log_info "加载角色配置: $role_file"
         export AGENT_PROMPT=$(cat "$role_file")
     else
-        log_warn "角色配置不存在: $role_file"
+        log_warn "角色配置不存在，使用默认配置"
         export AGENT_PROMPT="你是$AGENT_NAME，一个专业的程序员。"
     fi
 }
