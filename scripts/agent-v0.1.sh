@@ -145,32 +145,47 @@ git_status() {
 # GLM Provider
 # ============================================
 
-# 调用 GLM API
+# 调用 GLM API（带重试）
 call_glm() {
     local messages="$1"
     local tools="$2"
+    local max_retries=3
+    local retry_delay=5
 
-    local payload='{
-        "model": "'"$OPENAI_MODEL"'",
-        "messages": '"$messages"'
-
-    '
+    local payload='{"model": "'"$OPENAI_MODEL"'", "messages": '"$messages"'}'
 
     if [ -n "$tools" ]; then
-        payload='{
-            "model": "'"$OPENAI_MODEL"'",
-            "messages": '"$messages"',
-            "tools": '"$tools"'
-        }'
+        payload='{"model": "'"$OPENAI_MODEL"'", "messages": '"$messages"', "tools": '"$tools"'}'
     fi
 
-    local response=$(curl -s -X POST \
-        "${OPENAI_BASE_URL}/chat/completions" \
-        -H "Authorization: Bearer $OPENAI_API_KEY" \
-        -H "Content-Type: application/json" \
-        -d "$payload")
+    for i in $(seq 1 $max_retries); do
+        local response=$(curl -s -X POST \
+            "${OPENAI_BASE_URL}/chat/completions" \
+            -H "Authorization: Bearer $OPENAI_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$payload" \
+            --max-time 60)
 
+        # 检查是否有错误
+        local error_code=$(echo "$response" | grep -o '"code":[0-9]*' | head -1 | grep -o '[0-9]*')
+
+        if [ "$error_code" = "5001" ]; then
+            # QPS 限流，等待重试
+            log_warn "QPS 限流，等待 ${retry_delay}s 后重试 ($i/$max_retries)..."
+            sleep $retry_delay
+            retry_delay=$((retry_delay * 2))  # 指数退避
+            continue
+        fi
+
+        # 返回响应
+        echo "$response"
+        return 0
+    done
+
+    # 重试失败
+    log_error "API 调用失败，已达最大重试次数"
     echo "$response"
+    return 1
 }
 
 # 简单对话（无工具）
@@ -277,16 +292,23 @@ chat_with_tools() {
 handle_tool_calls() {
     local response="$1"
 
-    # 简化处理：提取工具名和参数
-    local tool_name=$(echo "$response" | grep -o '"name":"[^"]*"' | head -1 | sed 's/"name":"//;s/"$//')
-    local tool_args=$(echo "$response" | grep -o '"arguments":"[^"]*"' | head -1 | sed 's/"arguments":"//;s/"$//')
+    # 提取工具调用信息
+    # 格式: "tool_calls":[{"id":"...","type":"function","function":{"name":"file_read","arguments":"{\"filename\": \"README.md\"}"}}]
+    local tool_name=$(echo "$response" | sed -n 's/.*"function":{ *"name":"\([^"]*\)".*/\1/p')
+
+    # 提取 arguments JSON 字符串（带转义引号）
+    local tool_args=$(echo "$response" | sed -n 's/.*"arguments":"\({[^}]*}\)".*/\1/p')
 
     log_info "工具调用: $tool_name"
     log_info "参数: $tool_args"
 
+    # 去除转义，将 \" 替换为 "
+    local clean_args=$(echo "$tool_args" | sed 's/\\"/"/g')
+
+    # 解析参数中的值
     case "$tool_name" in
         "file_read")
-            local filename=$(echo "$tool_args" | grep -o '"filename":"[^"]*"' | sed 's/"filename":"//;s/"$//')
+            local filename=$(echo "$clean_args" | sed -n 's/.*"filename"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
             if [ -f "$filename" ]; then
                 log_info "读取文件: $filename"
                 cat "$filename"
@@ -295,13 +317,14 @@ handle_tool_calls() {
             fi
             ;;
         "file_write")
-            local filename=$(echo "$tool_args" | grep -o '"filename":"[^"]*"' | sed 's/"filename":"//;s/"$//')
-            local content=$(echo "$tool_args" | grep -o '"content":"[^"]*"' | sed 's/"content":"//;s/"$//')
+            local filename=$(echo "$clean_args" | sed -n 's/.*"filename"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+            # content 可能很长，需要特殊处理
+            local content=$(echo "$clean_args" | sed -n 's/.*"content"[[:space:]]*:[[:space:]]*"\(.*\)".*/\1/p' | sed 's/\\n/\n/g')
             log_info "写入文件: $filename"
-            echo "$content" > "$filename"
+            echo -e "$content" > "$filename"
             ;;
         "shell_run")
-            local command=$(echo "$tool_args" | grep -o '"command":"[^"]*"' | sed 's/"command":"//;s/"$//')
+            local command=$(echo "$clean_args" | sed -n 's/.*"command"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
             log_info "执行命令: $command"
             eval "$command"
             ;;
