@@ -30,27 +30,109 @@ expires_at: 2026-03-14T12:30:00Z
 3. 如果任务已被锁定，扫描其他可用任务
 4. 认领其他未锁定的任务
 
-### 代码冲突（人工处理）
+### 代码冲突（自动暂停 + 自动恢复）
 
 如果 `git push` 失败且是代码冲突：
 
-**Agent 自动执行：**
-1. 检测冲突文件：`git diff --name-only --diff-filter=U`
-2. 创建冲突报告：`.agent/conflicts/<task_id>_<timestamp>.yaml`
-3. 写入通知：`.agent/notifications/alerts.txt`
-4. **暂停任务，退出等待人工处理**（退出码 100）
+**步骤 1：检测并记录冲突**
+```bash
+# 检查冲突文件
+CONFLICT_FILES=$(git diff --name-only --diff-filter=U)
 
-**Agent 不需要解决代码冲突，只需：**
-- 创建冲突报告
-- 通知人工
-- 等待人工处理完成后重新启动
+# 创建冲突报告
+mkdir -p .agent/conflicts
+REPORT_FILE=".agent/conflicts/${TASK_ID}_$(date +%Y%m%d_%H%M%S).yaml"
+echo "task_id: ${TASK_ID}
+status: pending
+conflict_files:" > $REPORT_FILE
+for f in $CONFLICT_FILES; do
+    echo "  - $f" >> $REPORT_FILE
+done
+git add $REPORT_FILE
+git commit -m "chore: 报告代码冲突 ${TASK_ID}"
+git push origin main
+```
+
+**步骤 2：通知人工**
+```bash
+mkdir -p .agent/notifications
+echo "[$(date)] ⚠️ 代码冲突需要人工处理
+任务: ${TASK_ID}
+冲突文件: $(echo $CONFLICT_FILES | wc -w) 个
+冲突报告: $REPORT_FILE" >> .agent/notifications/alerts.txt
+```
+
+**步骤 3：等待人工处理（自动轮询）**
+```bash
+# 暂停当前任务，进入等待状态
+echo "检测到代码冲突，等待人工处理..."
+echo "冲突报告: $REPORT_FILE"
+
+# 轮询检查冲突解决状态
+while true; do
+    # 拉取最新代码（人工可能已推送解决）
+    git pull origin main -q
+
+    # 检查冲突报告状态
+    if [ -f "$REPORT_FILE" ]; then
+        STATUS=$(grep "^status:" $REPORT_FILE | awk '{print $2}')
+        if [ "$STATUS" = "resolved" ]; then
+            echo "✅ 冲突已解决，继续执行..."
+            break
+        fi
+    fi
+
+    # 检查冲突文件是否还存在
+    REMAINING=$(git diff --name-only --diff-filter=U 2>/dev/null | wc -l)
+    if [ "$REMAINING" -eq 0 ]; then
+        echo "✅ 冲突已解决（无冲突文件），继续执行..."
+        # 更新冲突报告
+        sed -i 's/status: pending/status: resolved/' $REPORT_FILE
+        break
+    fi
+
+    echo "等待人工解决冲突... (每 30 秒检查一次)"
+    sleep 30
+done
+```
+
+**步骤 4：继续执行**
+```bash
+# 冲突已解决，继续下一个任务
+echo "冲突已解决，继续扫描新任务..."
+# 返回主循环
+```
+
+### 冲突处理流程图
+
+```
+检测到代码冲突
+    ↓
+创建冲突报告
+    ↓
+通知人工
+    ↓
+进入等待状态（每 30 秒检查一次）
+    ↓
+检查 status == resolved 或无冲突文件？
+    ↓ 是
+继续下一个任务
+```
+
+### 人工处理步骤
+
+人类收到通知后执行：
+1. 查看冲突文件：`cat <冲突文件>`
+2. 解决冲突
+3. `git add <文件> && git commit && git push`
+4. 更新冲突报告：`status: resolved`
 
 ### 重要提醒
 
-- **代码冲突需要人工处理**，Agent 检测到后立即暂停
-- **任务文件冲突自动处理**，使用远程版本（最新状态）
-- **不要强制推送** (`--force`)
-- 解决冲突后由人工重启 Agent
+- Agent 自动暂停并轮询检查，无需手动重启
+- 每 30 秒检查一次冲突解决状态
+- 检测到 `status: resolved` 或无冲突文件后自动恢复
+- 不要强制推送 (`--force`)
 
 ## 注意事项
 

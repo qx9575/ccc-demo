@@ -1,0 +1,21 @@
+# 代码冲突报告
+task_id: task-conflict-test
+agent_id: agent-2
+detected_at: 2026-03-24T14:17:52+08:00
+status: resolved
+
+conflict_files:
+  - src/utils.py
+
+resolved_by: human
+resolved_at: 2026-03-24T14:22:52+08:00
+resolution_summary: 合并了两个 Agent 的修改，保留所有函数
+
+# 解决过程
+resolution_steps:
+  1. 查看冲突内容
+  2. 手动编辑合并两个版本的函数
+  3. 删除冲突标记
+  4. 更新测试文件
+  5. 运行测试验证通过
+  6. git add && git commit
