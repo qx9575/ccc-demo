@@ -15,9 +15,18 @@ def parse_json(json_str: str) -> dict:
 
 # Agent 1 添加的函数
 def format_upper(text: str) -> str:
-    """Agent 1: 转大写"""
+    """转大写"""
     return text.upper()
 
 def format_lower(text: str) -> str:
-    """Agent 1: 转小写"""
+    """转小写"""
     return text.lower()
+
+# Agent 2 添加的函数
+def format_reverse(text: str) -> str:
+    """反转字符串"""
+    return text[::-1]
+
+def format_capitalize(text: str) -> str:
+    """首字母大写"""
+    return text.capitalize()
