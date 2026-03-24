@@ -12,3 +12,12 @@ def parse_json(json_str: str) -> dict:
         return json.loads(json_str)
     except json.JSONDecodeError:
         return {}
+
+# Agent 2 添加的函数
+def format_reverse(text: str) -> str:
+    """Agent 2: 反转字符串"""
+    return text[::-1]
+
+def format_capitalize(text: str) -> str:
+    """Agent 2: 首字母大写"""
+    return text.capitalize()
