@@ -25,7 +25,7 @@ STATE_PENDING="pending"
 STATE_ASSIGNED="assigned"
 STATE_IN_PROGRESS="in_progress"
 STATE_REVIEW="review"
-STATE_COMPLETED="completed"
+STATE_ARCHIVED="archived"
 STATE_CHANGES_REQUESTED="changes_requested"
 
 # ============================================
@@ -53,7 +53,9 @@ init_coordinator_dirs() {
     mkdir -p "$TASKS_DIR/assigned"
     mkdir -p "$TASKS_DIR/in-progress"
     mkdir -p "$TASKS_DIR/review"
-    mkdir -p "$TASKS_DIR/completed"
+    mkdir -p "$COORDINATOR_DIR/archives/tasks"
+    mkdir -p "$COORDINATOR_DIR/archives/tests"
+    mkdir -p "$COORDINATOR_DIR/archives/commits"
     mkdir -p "$COORDINATOR_DIR/messages/inbox"
     mkdir -p "$COORDINATOR_DIR/messages/outbox"
     mkdir -p "$COORDINATOR_DIR/messages/archive"
@@ -133,7 +135,7 @@ get_task_state() {
     local task_id="$1"
 
     # Check each state directory
-    for state in pending assigned in-progress review completed; do
+    for state in pending assigned in-progress review; do
         if [ -f "$TASKS_DIR/$state/${task_id}.yaml" ]; then
             echo "$state"
             return 0
@@ -143,6 +145,13 @@ get_task_state() {
             return 0
         fi
     done
+
+    # Check archives
+    local month=$(date +"%Y-%m")
+    if [ -f "$COORDINATOR_DIR/archives/tasks/$month/${task_id}.yaml" ]; then
+        echo "archived"
+        return 0
+    fi
 
     return 1
 }
@@ -363,7 +372,8 @@ check_dependencies() {
     for dep in $deps; do
         if [ -n "$dep" ] && [ "$dep" != "dependencies:" ]; then
             local dep_state=$(get_task_state "$dep")
-            if [ "$dep_state" != "completed" ]; then
+            # 依赖必须已完成（归档状态）
+            if [ "$dep_state" != "archived" ] && [ "$dep_state" != "completed" ]; then
                 log_coord "依赖未满足: $dep (状态: $dep_state)" >&2
                 return 1
             fi
@@ -481,19 +491,47 @@ approve_task() {
 
     log_coord "批准任务: $task_id"
 
-    # Update state to completed
-    update_task_state "$task_id" "completed" "$reviewer_id"
+    # 获取任务文件
+    local task_file="$TASKS_DIR/review/${task_id}.yaml"
 
-    # Add review metadata
-    local task_file="$TASKS_DIR/completed/${task_id}.yaml"
+    if [ ! -f "$task_file" ]; then
+        # 尝试其他目录
+        for state in in-progress pending; do
+            if [ -f "$TASKS_DIR/$state/${task_id}.yaml" ]; then
+                task_file="$TASKS_DIR/$state/${task_id}.yaml"
+                break
+            fi
+        done
+    fi
+
+    if [ ! -f "$task_file" ]; then
+        log_error "任务文件不存在: $task_id"
+        return 1
+    fi
+
+    # 添加审查元数据
     echo "" >> "$task_file"
     echo "review:" >> "$task_file"
     echo "  approved_by: $reviewer_id" >> "$task_file"
     echo "  approved_at: $(date -Iseconds)" >> "$task_file"
+    echo "status: completed" >> "$task_file"
 
-    git add "$TASKS_DIR/"
-    git commit -m "chore: 批准任务 $task_id by $reviewer_id"
-    git_atomic_push "main" "approve: $task_id"
+    # 调用归档脚本（如果可用）
+    if [ -f "/app/archive-task.sh" ]; then
+        /app/archive-task.sh "$task_id" 2>/dev/null || true
+    elif [ -f "./scripts/archive-task.sh" ]; then
+        ./scripts/archive-task.sh "$task_id" 2>/dev/null || true
+    else
+        # 归档脚本不可用，直接删除任务文件
+        rm -f "$task_file"
+        log_coord "任务完成（归档脚本不可用）: $task_id"
+    fi
+
+    git add -A 2>/dev/null || true
+    git commit -m "chore: 批准并归档任务 $task_id by $reviewer_id"
+    git_atomic_push "main" "approve and archive: $task_id"
+
+    log_coord "任务已归档: $task_id"
 }
 
 reject_task() {

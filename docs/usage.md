@@ -229,7 +229,7 @@ docker exec agent-coder /app/agent-v0.2.sh --chat "你好"
 ### 任务状态机
 
 ```
-pending → assigned → in_progress → review → completed
+pending → assigned → in_progress → review → archived
                         ↑               |
                         |---------------|  (changes_requested)
 ```
@@ -250,8 +250,11 @@ pending → assigned → in_progress → review → completed
 │   ├── pending/          # 待认领任务
 │   ├── assigned/         # 已分配任务
 │   ├── in-progress/      # 进行中任务
-│   ├── review/           # 待审查任务
-│   └── completed/        # 已完成任务
+│   └── review/           # 待审查任务
+├── archives/             # 归档目录
+│   ├── tasks/            # 任务归档（按月）
+│   ├── tests/            # 测试报告归档
+│   └── commits/          # 提交记录归档
 ├── messages/
 │   ├── inbox/{agent-id}/ # 收件箱
 │   ├── outbox/           # 发件箱

@@ -22,7 +22,9 @@ echo "=============================================="
 mkdir -p .agent/conflicts
 mkdir -p .agent/notifications
 mkdir -p .agent/tasks/in-progress
-mkdir -p .agent/tasks/completed
+mkdir -p .agent/archives/tasks
+mkdir -p .agent/archives/tests
+mkdir -p .agent/archives/commits
 
 # 检查是否有未解决的冲突
 check_pending_conflicts() {
@@ -301,13 +303,19 @@ archive_task() {
     local lock_file=".agent/tasks/in-progress/${task_id}.lock"
     local task_file=".agent/tasks/in-progress/${task_id}.yaml"
 
-    # 移动到已完成
-    mkdir -p .agent/tasks/completed
-    git mv "$task_file" ".agent/tasks/completed/" 2>/dev/null || true
-    rm -f "$lock_file"
+    # 调用归档脚本
+    if [ -f "./scripts/archive-task.sh" ]; then
+        bash ./scripts/archive-task.sh "$task_id" 2>/dev/null
+    elif [ -f "/app/archive-task.sh" ]; then
+        bash /app/archive-task.sh "$task_id" 2>/dev/null
+    else
+        # 简单归档：删除原文件
+        rm -f "$task_file"
+        rm -f "$lock_file"
+    fi
 
-    git add .agent/tasks/
-    git commit -m "chore: 归档任务 $task_id (已完成)"
+    git add .agent/
+    git commit -m "chore: 归档任务 $task_id (已完成)" 2>/dev/null || true
     git push origin main
 
     echo "✅ 任务归档: $task_id"

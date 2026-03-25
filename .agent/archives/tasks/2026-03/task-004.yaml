@@ -1,0 +1,66 @@
+# ============ 任务归档 ============
+# 归档时间: 2026-03-25T11:31:03Z
+# 归档者: archive-system
+
+id: task-004
+title: 创建 validators 模块
+priority: P1
+role: coder
+status: completed
+
+# ============ 生命周期 ============
+lifecycle:
+  created_at: 2026-03-16T15:00:00Z
+  created_by: pm
+  started_at: 2026-03-16T14:55:40Z
+  started_by: coder-agent
+  completed_at: 2026-03-25T11:31:03Z
+  completed_by: coder-agent
+
+# ============ 验收标准 ============
+acceptance_criteria:
+  - criterion: 创建 src/validators.py 文件
+    status: passed
+  - criterion: 实现 validate_email() 函数
+    status: passed
+  - criterion: 实现 validate_phone() 函数
+    status: passed
+  - criterion: 编写测试
+    status: passed
+
+# ============ 产出物 ============
+artifacts:
+  code_files:
+    # 从提交历史获取的文件变更
+    - path: src/validators.py
+      change_type: modified
+      lines_added: 0
+    - path: tests/test_validators.py
+      change_type: modified
+      lines_added: 0
+  test_report: null
+  commits:
+    - sha: 39bb34f
+      short_sha: 39bb34f
+      message: "feat: 实现验证器模块 (task-004)"
+      link: archives/commits/2026-03/commit-39bb34f.yaml
+    - sha: 2afb9c9
+      short_sha: 2afb9c9
+      message: "chore: Agent 2 认领 task-004"
+      link: archives/commits/2026-03/commit-2afb9c9.yaml
+    - sha: 97577cc
+      short_sha: 97577cc
+      message: "chore: 创建并发测试任务 task-003, task-004"
+      link: archives/commits/2026-03/commit-97577cc.yaml
+
+# ============ 审查记录 ============
+review_history:
+  - round: 1
+    reviewer: auto
+    result: auto_approved
+    reviewed_at: 2026-03-25T11:31:02Z
+
+# ============ 总结 ============
+summary: |
+  任务已完成并归档。
+  详细信息请查看相关产出物和提交记录。

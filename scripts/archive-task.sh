@@ -128,13 +128,16 @@ EOF
     update_task_index "$month" "$task_id" "$title"
     update_task_registry "$task_id" "$title" "$month"
 
-    # 移动原任务文件到 completed 目录（如果还在其他目录）
-    if [[ "$task_file" != *"/completed/"* ]]; then
-        local completed_dir="$TASKS_DIR/completed"
-        mkdir -p "$completed_dir"
-        if [ -f "$task_file" ]; then
-            mv "$task_file" "$completed_dir/" 2>/dev/null || true
-        fi
+    # 删除原任务文件（已归档）
+    if [ -f "$task_file" ]; then
+        rm -f "$task_file"
+        log_info "删除原任务文件: $task_file"
+    fi
+
+    # 删除锁文件（如果存在）
+    local lock_file="$TASKS_DIR/in-progress/${task_id}.lock"
+    if [ -f "$lock_file" ]; then
+        rm -f "$lock_file"
     fi
 
     echo "$archive_file"
@@ -148,7 +151,7 @@ find_task_file() {
     local task_id="$1"
 
     # 在各个状态目录中查找
-    for state in completed review in-progress pending assigned; do
+    for state in review in-progress pending assigned; do
         local file="$TASKS_DIR/$state/${task_id}.yaml"
         if [ -f "$file" ]; then
             echo "$file"
@@ -157,12 +160,15 @@ find_task_file() {
     done
 
     # 在归档目录查找
-    local month=$(get_current_month)
-    local archive_file="$ARCHIVES_DIR/tasks/$month/${task_id}.yaml"
-    if [ -f "$archive_file" ]; then
-        echo "$archive_file"
-        return 0
-    fi
+    for month_dir in "$ARCHIVES_DIR/tasks"/*/; do
+        if [ -d "$month_dir" ]; then
+            local archive_file="$month_dir${task_id}.yaml"
+            if [ -f "$archive_file" ]; then
+                echo "$archive_file"
+                return 0
+            fi
+        fi
+    done
 
     return 1
 }
@@ -521,13 +527,14 @@ archive_commit() {
     local email=$(git show -s --format="%ae" "$sha")
     local committed_at=$(git show -s --format="%ci" "$sha" | xargs -I{} date -d "{}" -u +"%Y-%m-%dT%H:%M:%SZ")
 
-    # 解析提交类型
+    # 解析提交类型（BusyBox 兼容）
     local type="chore"
     local scope=""
 
-    if [[ "$subject" =~ ^(feat|fix|refactor|docs|test|style|perf|chore)(\(([^)]+)\))?: ]]; then
-        type="${BASH_REMATCH[1]}"
-        scope="${BASH_REMATCH[3]:-}"
+    # 使用 grep 和 sed 解析
+    if echo "$subject" | grep -qE "^(feat|fix|refactor|docs|test|style|perf|chore)(\([^)]+\))?:"; then
+        type=$(echo "$subject" | sed -E 's/^(feat|fix|refactor|docs|test|style|perf|chore)(\(([^)]+)\))?:.*/\1/')
+        scope=$(echo "$subject" | sed -E 's/^(feat|fix|refactor|docs|test|style|perf|chore)(\(([^)]+)\))?:.*/\3/')
     fi
 
     # 获取文件变更
@@ -678,8 +685,10 @@ EOF
     ' "$index_file" > "$temp_file"
 
     # 更新统计
-    local completed_count=$(grep -c "id: $task_id" "$temp_file" 2>/dev/null || echo "0")
-    sed -i "s/total: [0-9]*/total: $((completed_count))/" "$temp_file" 2>/dev/null || true
+    local completed_count=$(grep -c "id:" "$temp_file" 2>/dev/null || echo "0")
+    if [ "$completed_count" -gt 0 ] 2>/dev/null; then
+        sed -i "s/total: [0-9]*/total: $completed_count/" "$temp_file" 2>/dev/null || true
+    fi
 
     mv "$temp_file" "$index_file"
 }

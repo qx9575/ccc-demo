@@ -58,7 +58,7 @@ simple_archive_task() {
 
     # 查找任务文件
     local task_file=""
-    for state in completed review in-progress pending assigned; do
+    for state in review in-progress pending assigned; do
         if [ -f "$TASKS_DIR/$state/${task_id}.yaml" ]; then
             task_file="$TASKS_DIR/$state/${task_id}.yaml"
             break
@@ -90,10 +90,14 @@ EOF
 
     log_archive "任务已归档: $archive_file"
 
-    # 移动原文件到 completed
-    if [[ "$task_file" != *"/completed/"* ]]; then
-        mkdir -p "$TASKS_DIR/completed"
-        mv "$task_file" "$TASKS_DIR/completed/" 2>/dev/null || true
+    # 删除原任务文件
+    rm -f "$task_file"
+    log_archive "删除原任务文件: $task_file"
+
+    # 删除锁文件（如果存在）
+    local lock_file="$TASKS_DIR/in-progress/${task_id}.lock"
+    if [ -f "$lock_file" ]; then
+        rm -f "$lock_file"
     fi
 
     # 更新索引
