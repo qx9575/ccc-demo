@@ -40,7 +40,10 @@ ccc-demo/
 │   ├── agent-pm-loop.sh           # PM Agent 循环
 │   ├── agent-coder-loop.sh        # Coder Agent 循环
 │   ├── agent-reviewer-loop.sh     # Reviewer Agent 循环
-│   └── agent-loop-with-conflict-recovery.sh  # 冲突恢复循环
+│   ├── agent-loop-with-conflict-recovery.sh  # 冲突恢复循环
+│   ├── simulate-conflict.sh       # 冲突模拟
+│   ├── verify-conflict-resolution.sh      # 冲突解决验证
+│   └── verify-conflict-resolution-v2.sh   # 冲突解决验证 v2
 ├── .agent/
 │   ├── roles/
 │   │   ├── coder/config.yaml      # 程序员配置
@@ -63,7 +66,11 @@ ccc-demo/
 │   ├── coordination/              # 协调数据
 │   └── review-standards.md        # 审查标准
 ├── tests/
-│   └── test-multi-agent.sh        # 多 Agent 测试
+│   ├── test-multi-agent.sh        # 多 Agent 测试
+│   ├── test_calculator.py         # 计算器测试
+│   ├── test_hello.py              # Hello 测试
+│   ├── test_utils.py              # 工具函数测试
+│   └── test_validators.py         # 验证器测试
 ├── docs/
 │   └── usage.md                   # 使用文档
 ├── src/                           # Python 源码（v0.3+）
