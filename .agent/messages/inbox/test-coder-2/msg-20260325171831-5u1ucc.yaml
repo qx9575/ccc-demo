@@ -1,0 +1,16 @@
+id: msg-20260325171831-5u1ucc
+from: test-coder-1
+to: test-coder-2
+type: review_result
+priority: high
+created_at: 2026-03-25T17:18:31+08:00
+read_at: null
+acknowledged_at: null
+requires_ack: true
+content:
+  task_id: test-task-001
+  result: approved
+  comments: |
+    代码质量良好
+
+  action: review_result
