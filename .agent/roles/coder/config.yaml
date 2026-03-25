@@ -4,7 +4,7 @@ level: mid
 
 model:
   provider: zhipu
-  model: glm-4-flash
+  model: glm-5
 
 capabilities:
   allowed_dirs:

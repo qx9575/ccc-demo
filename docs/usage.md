@@ -239,7 +239,7 @@ pending → assigned → in_progress → review → completed
 | 角色 | 职责 | 默认模型 |
 |------|------|----------|
 | PM (项目经理) | 创建任务、分配任务、监控进度 | glm-4-plus |
-| Coder (程序员) | 执行任务、提交代码、请求审查 | glm-4-flash |
+| Coder (程序员) | 执行任务、提交代码、请求审查 | glm-5 |
 | Reviewer (审查员) | 代码审查、批准/驳回任务 | glm-4-plus |
 
 ### 目录结构

@@ -17,7 +17,10 @@
   - 文件级消息传递
   - 心跳监控
   - 任务状态机
-- API: GLM-4-plus（PM/Reviewer）、GLM-4-flash（Coder）
+  - 原子任务认领（锁机制）
+  - 多模型支持（GLM/GPT/DeepSeek/Kimi）
+- API: GLM-4-plus（PM/Reviewer）、GLM-5（Coder）
+- Docker: Alpine + openssh-client（支持 Git push）
 
 ### v0.3+（计划）
 - 语言: Python 3.11+
