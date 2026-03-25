@@ -2,7 +2,7 @@ id: task-005
 title: 测试归档流程
 priority: P1
 role: coder
-status: pending
+status: review
 created_at: 2026-03-25T12:00:00Z
 created_by: pm
 
@@ -12,3 +12,7 @@ acceptance_criteria:
 
 description: |
   测试任务完成后是否正确归档到 archives 目录
+
+# State transition at 2026-03-25T11:37:23+00:00
+updated_at: 2026-03-25T11:37:23+00:00
+updated_by: coder-agent-1
