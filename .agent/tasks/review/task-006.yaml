@@ -2,7 +2,7 @@ id: task-006
 title: 添加数组工具函数
 priority: P1
 role: coder
-status: pending
+status: review
 created_at: 2026-03-25T12:00:00Z
 created_by: pm-agent-1
 
@@ -65,3 +65,7 @@ review:
   rejected_by: reviewer-agent-1
   rejected_at: 2026-03-25T10:06:53+00:00
   rejection_reason: 代码需要修改。
+
+# State transition at 2026-03-25T11:41:44+00:00
+updated_at: 2026-03-25T11:41:44+00:00
+updated_by: coder-agent-1
