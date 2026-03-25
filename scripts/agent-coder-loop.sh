@@ -106,63 +106,177 @@ coder_verify_task_completion() {
     log_role "验证任务完成情况: $task_id"
 
     local verification_passed=true
-    local verification_details=""
+    local missing_items=""
 
-    # 提取验收标准
-    local in_criteria=false
-    local criteria_list=""
-    while IFS= read -r line; do
-        if [[ "$line" =~ ^acceptance_criteria: ]]; then
-            in_criteria=true
-            continue
-        fi
-        if [ "$in_criteria" = true ]; then
-            if [[ "$line" =~ ^[a-z_]+: ]] && [[ ! "$line" =~ ^[[:space:]]*- ]]; then
-                break
-            fi
-            if [[ "$line" =~ ^[[:space:]]*- ]]; then
-                criteria_list="$criteria_list$line\n"
-            fi
-        fi
-    done < "$task_file"
+    # 提取任务描述和验收标准
+    local title=$(grep "^title:" "$task_file" | cut -d: -f2- | sed 's/^ *//')
+    local description=$(sed -n '/^description:/,/^[a-z_]*:/p' "$task_file" | head -n -1 | tail -n +2)
+    local acceptance_criteria=$(sed -n '/^acceptance_criteria:/,/^[a-z_]*:/p' "$task_file" | head -n -1 | tail -n +2)
 
-    # 检查每个验收标准
-    if [ -n "$criteria_list" ]; then
-        log_role "检查验收标准..."
-        while IFS= read -r criterion; do
-            criterion=$(echo "$criterion" | sed 's/^[[:space:]]*- //')
-            if [ -n "$criterion" ]; then
-                log_role "  检查: $criterion"
-                # 简单验证：检查是否创建了文件
-                if [[ "$criterion" =~ 创建|编写|实现 ]]; then
-                    # 提取可能的文件名
-                    local filename=$(echo "$criterion" | grep -oE '[a-zA-Z0-9_]+\.(py|js|ts|sh|yaml|md)' | head -1)
-                    if [ -n "$filename" ]; then
-                        # 在多个目录搜索
-                        local found=false
-                        for dir in src tests .; do
-                            if [ -f "$dir/$filename" ]; then
-                                found=true
-                                log_role "    ✓ 找到文件: $dir/$filename"
-                                break
-                            fi
-                        done
-                        if [ "$found" = false ]; then
-                            log_role "    ✗ 未找到文件: $filename"
-                            verification_passed=false
-                            verification_details="$verification_details\n- 未创建: $filename"
-                        fi
-                    fi
-                fi
-            fi
-        done <<< "$(echo -e "$criteria_list")"
+    # 获取 git 变更
+    local git_status=$(git status --porcelain 2>/dev/null)
+    local git_diff=$(git diff --name-only HEAD 2>/dev/null)
+    local all_changes="$git_status\n$git_diff"
+
+    log_role "检查代码变更..."
+
+    # 检查是否有变更
+    if [ -z "$git_status" ] && [ -z "$git_diff" ]; then
+        log_warn "没有检测到任何代码变更"
+        verification_passed=false
+        missing_items="$missing_items\n- 没有任何代码变更"
+    else
+        log_role "检测到变更文件:"
+        echo -e "$all_changes" | grep -v '^$' | while read -r line; do
+            log_role "  $line"
+        done
     fi
 
+    # 解析任务描述中提到的文件/模块
+    local mentioned_items=""
+
+    # 从标题提取
+    mentioned_items="$mentioned_items $title"
+
+    # 从描述提取关键词
+    mentioned_items="$mentioned_items $(echo "$description" | grep -oE '[a-zA-Z_][a-zA-Z0-9_]*\.(py|js|ts|go|java|rs|sh|yaml|yml|json|md|txt)' || true)"
+
+    # 从验收标准提取
+    mentioned_items="$mentioned_items $(echo "$acceptance_criteria" | grep -oE '[a-zA-Z_][a-zA-Z0-9_]*\.(py|js|ts|go|java|rs|sh|yaml|yml|json|md|txt)' || true)"
+
+    # 提取描述中的模块名（如 datetime_utils, calculator）
+    local module_names=$(echo "$description $acceptance_criteria" | grep -oE '(src/|tests/)?[a-zA-Z_][a-zA-Z0-9_]*' | sort -u || true)
+
+    log_role "任务涉及模块: $(echo $module_names | tr '\n' ' ')"
+
+    # 验证每个提到的文件/模块
+    for item in $mentioned_items; do
+        # 跳过常见的非文件关键词
+        case "$item" in
+            "任务"|"文件"|"目录"|"函数"|"测试"|"创建"|"实现"|"编写"|"添加"|"更新"|"修改")
+                continue
+                ;;
+        esac
+
+        # 检查是否是文件名
+        if [[ "$item" =~ \. ]]; then
+            local found=false
+
+            # 检查变更列表
+            if echo -e "$all_changes" | grep -q "$item"; then
+                found=true
+                log_role "  ✓ 找到变更: $item"
+            else
+                # 在文件系统中查找
+                for dir in src tests . ; do
+                    if [ -f "$dir/$item" ]; then
+                        found=true
+                        log_role "  ✓ 找到文件: $dir/$item"
+                        break
+                    fi
+                done
+            fi
+
+            if [ "$found" = false ]; then
+                log_role "  ✗ 未找到: $item"
+                verification_passed=false
+                missing_items="$missing_items\n- 缺少: $item"
+            fi
+        fi
+    done
+
+    # 验证模块对应的文件是否存在
+    for module in $module_names; do
+        # 跳过短名称和常见词
+        if [ ${#module} -lt 4 ]; then
+            continue
+        fi
+
+        case "$module" in
+            "src"|"tests"|"目录"|"文件"|"任务"|"标准"|"描述")
+                continue
+                ;;
+        esac
+
+        # 检查是否已有匹配的变更
+        if echo -e "$all_changes" | grep -qi "$module"; then
+            log_role "  ✓ 变更匹配模块: $module"
+            continue
+        fi
+
+        # 检查常见文件命名模式
+        local patterns=(
+            "src/${module}.py"
+            "src/${module}.js"
+            "src/${module}.ts"
+            "tests/test_${module}.py"
+            "tests/${module}_test.py"
+            "tests/test-${module}.js"
+            "${module}.py"
+        )
+
+        local module_found=false
+        for pattern in "${patterns[@]}"; do
+            if [ -f "$pattern" ]; then
+                module_found=true
+                log_role "  ✓ 找到模块文件: $pattern"
+                break
+            fi
+        done
+
+        # 如果模块名在描述中被强调但没有对应文件
+        if [ "$module_found" = false ]; then
+            # 检查是否在描述中被明确要求
+            if echo "$description $acceptance_criteria" | grep -qi "创建.*$module\|编写.*$module\|实现.*$module"; then
+                log_role "  ⚠ 需要创建: $module"
+                # 不强制失败，因为可能已经在变更中
+            fi
+        fi
+    done
+
+    # 检查验收标准中的关键要求
+    log_role "检查验收标准..."
+
+    # 检查是否有新文件（针对"创建文件"类标准）
+    if echo "$acceptance_criteria" | grep -qi "创建\|编写\|新增\|添加文件"; then
+        local new_files=$(git status --porcelain | grep "^??" | wc -l)
+        local modified_files=$(git status --porcelain | grep "^[AM]" | wc -l)
+
+        if [ "$new_files" -eq 0 ] && [ "$modified_files" -eq 0 ]; then
+            log_role "  ✗ 未检测到新增或修改的文件"
+            verification_passed=false
+            missing_items="$missing_items\n- 没有新增或修改的文件"
+        else
+            log_role "  ✓ 检测到 $((new_files + modified_files)) 个文件变更"
+        fi
+    fi
+
+    # 检查测试要求
+    if echo "$acceptance_criteria" | grep -qi "测试\|test"; then
+        local test_changes=$(echo -e "$all_changes" | grep -i "test" || true)
+        if [ -n "$test_changes" ]; then
+            log_role "  ✓ 检测到测试文件变更"
+        else
+            # 检查是否有测试目录
+            if ls tests/*.py tests/*.js 2>/dev/null | head -1 | grep -q .; then
+                log_role "  ⚠ 测试目录存在但无新测试变更"
+            else
+                log_role "  ✗ 验收标准要求测试但未检测到测试变更"
+                verification_passed=false
+                missing_items="$missing_items\n- 缺少测试文件"
+            fi
+        fi
+    fi
+
+    # 最终结果
     if [ "$verification_passed" = true ]; then
-        log_role "任务验证通过"
+        log_role "✅ 任务验证通过"
         return 0
     else
-        log_error "任务验证失败:$verification_details"
+        log_error "❌ 任务验证失败"
+        if [ -n "$missing_items" ]; then
+            log_error "缺失项目:$missing_items"
+        fi
         return 1
     fi
 }
