@@ -1,0 +1,17 @@
+id: msg-20260325171831-qrc999
+from: test-coder-1
+to: test-coder-2
+type: review_request
+priority: high
+created_at: 2026-03-25T17:18:31+08:00
+read_at: null
+acknowledged_at: null
+requires_ack: true
+content:
+  task_id: test-task-001
+  summary: |
+    请审查代码
+  changed_files:
+    - src/main.py
+    - tests/test_main.py
+  action: review_request
