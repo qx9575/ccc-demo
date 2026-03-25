@@ -142,15 +142,160 @@ git_status() {
 }
 
 # ============================================
-# GLM Provider
+# LLM Provider (支持 GLM/GPT/DeepSeek/Kimi 等)
 # ============================================
 
-# 调用 GLM API（带重试）
+# 错误类型定义
+ERROR_TYPE_RATE_LIMIT="rate_limit"
+ERROR_TYPE_AUTH="auth_error"
+ERROR_TYPE_INVALID_REQUEST="invalid_request"
+ERROR_TYPE_SERVER_ERROR="server_error"
+ERROR_TYPE_UNKNOWN="unknown"
+
+# 检测 API 提供商
+detect_provider() {
+    local base_url="${OPENAI_BASE_URL:-}"
+
+    if [[ "$base_url" == *"openai.com"* ]]; then
+        echo "openai"
+    elif [[ "$base_url" == *"deepseek.com"* ]]; then
+        echo "deepseek"
+    elif [[ "$base_url" == *"moonshot.cn"* ]]; then
+        echo "moonshot"
+    elif [[ "$base_url" == *"ai-yuanjing.com"* ]] || [[ "$base_url" == *"zhipuai"* ]]; then
+        echo "zhipu"
+    elif [[ "$base_url" == *"dashscope.aliyuncs"* ]]; then
+        echo "aliyun"
+    else
+        echo "unknown"
+    fi
+}
+
+# 解析错误类型
+parse_error_type() {
+    local response="$1"
+    local provider="$2"
+
+    # 检查 HTTP 状态码（OpenAI 兼容格式）
+    local http_status=$(echo "$response" | grep -o '"status":[[:space:]]*[0-9]*' | head -1 | grep -o '[0-9]*')
+
+    # 如果没有 status 字段，检查 error 对象
+    if [ -z "$http_status" ]; then
+        http_status=$(echo "$response" | grep -o '"status_code":[[:space:]]*[0-9]*' | head -1 | grep -o '[0-9]*')
+    fi
+
+    # 检查错误码（GLM/智谱特有）
+    local error_code=$(echo "$response" | grep -o '"code":[[:space:]]*[0-9]*' | head -1 | grep -o '[0-9]*')
+
+    # 检查错误类型字段
+    local error_type=$(echo "$response" | grep -o '"type":[[:space:]]*"[^"]*"' | head -1 | sed 's/"type":[[:space:]]*"//;s/"$//')
+
+    # 根据不同格式判断错误类型
+
+    # 1. HTTP 状态码判断（通用）
+    case "$http_status" in
+        429)
+            echo "$ERROR_TYPE_RATE_LIMIT"
+            return
+            ;;
+        401|403)
+            echo "$ERROR_TYPE_AUTH"
+            return
+            ;;
+        400)
+            echo "$ERROR_TYPE_INVALID_REQUEST"
+            return
+            ;;
+        500|502|503|504)
+            echo "$ERROR_TYPE_SERVER_ERROR"
+            return
+            ;;
+    esac
+
+    # 2. GLM/智谱特有错误码
+    case "$error_code" in
+        5001)  # QPS 限流
+            echo "$ERROR_TYPE_RATE_LIMIT"
+            return
+            ;;
+        5002)  # Token 超限
+            echo "$ERROR_TYPE_INVALID_REQUEST"
+            return
+            ;;
+        5003)  # 模型错误
+            echo "$ERROR_TYPE_SERVER_ERROR"
+            return
+            ;;
+    esac
+
+    # 3. OpenAI 错误类型
+    case "$error_type" in
+        "insufficient_quota"|"rate_limit_exceeded"|"requests_per_minute_limit_exceeded")
+            echo "$ERROR_TYPE_RATE_LIMIT"
+            return
+            ;;
+        "invalid_api_key"|"invalid_authentication")
+            echo "$ERROR_TYPE_AUTH"
+            return
+            ;;
+        "invalid_request_error"|"context_length_exceeded")
+            echo "$ERROR_TYPE_INVALID_REQUEST"
+            return
+            ;;
+    esac
+
+    # 4. 检查响应中是否有错误信息
+    if echo "$response" | grep -qi "rate.limit"; then
+        echo "$ERROR_TYPE_RATE_LIMIT"
+        return
+    fi
+
+    if echo "$response" | grep -qi "unauthorized\|invalid.api.key\|authentication"; then
+        echo "$ERROR_TYPE_AUTH"
+        return
+    fi
+
+    echo "$ERROR_TYPE_UNKNOWN"
+}
+
+# 获取错误描述
+get_error_message() {
+    local error_type="$1"
+    local response="$2"
+
+    # 尝试从响应中提取错误信息
+    local error_msg=$(echo "$response" | grep -o '"message":[[:space:]]*"[^"]*"' | head -1 | sed 's/"message":[[:space:]]*"//;s/"$//')
+
+    if [ -z "$error_msg" ]; then
+        error_msg=$(echo "$response" | grep -o '"error":[[:space:]]*"[^"]*"' | head -1 | sed 's/"error":[[:space:]]*"//;s/"$//')
+    fi
+
+    case "$error_type" in
+        "$ERROR_TYPE_RATE_LIMIT")
+            echo "API 限流${error_msg:+: $error_msg}"
+            ;;
+        "$ERROR_TYPE_AUTH")
+            echo "API 认证失败${error_msg:+: $error_msg}"
+            ;;
+        "$ERROR_TYPE_INVALID_REQUEST")
+            echo "请求格式错误${error_msg:+: $error_msg}"
+            ;;
+        "$ERROR_TYPE_SERVER_ERROR")
+            echo "服务器错误${error_msg:+: $error_msg}"
+            ;;
+        *)
+            echo "未知错误${error_msg:+: $error_msg}"
+            ;;
+    esac
+}
+
+# 调用 LLM API（通用版，带重试）
 call_glm() {
     local messages="$1"
     local tools="$2"
     local max_retries=3
-    local retry_delay=5
+    local base_delay=5
+    local retry_delay=$base_delay
 
     local payload='{"model": "'"$OPENAI_MODEL"'", "messages": '"$messages"'}'
 
@@ -164,26 +309,84 @@ call_glm() {
             -H "Authorization: Bearer $OPENAI_API_KEY" \
             -H "Content-Type: application/json" \
             -d "$payload" \
-            --max-time 60)
+            --max-time 120 2>&1)
 
-        # 检查是否有错误
-        local error_code=$(echo "$response" | grep -o '"code":[0-9]*' | head -1 | grep -o '[0-9]*')
-
-        if [ "$error_code" = "5001" ]; then
-            # QPS 限流，等待重试
-            log_warn "QPS 限流，等待 ${retry_delay}s 后重试 ($i/$max_retries)..."
-            sleep $retry_delay
-            retry_delay=$((retry_delay * 2))  # 指数退避
-            continue
+        # 检查 curl 是否成功
+        local curl_exit_code=$?
+        if [ $curl_exit_code -ne 0 ]; then
+            log_warn "网络请求失败 (exit code: $curl_exit_code)"
+            if [ $i -lt $max_retries ]; then
+                sleep $retry_delay
+                retry_delay=$((retry_delay * 2))
+                continue
+            fi
+            log_error "API 调用失败，网络错误"
+            echo "$response"
+            return 1
         fi
 
-        # 返回响应
-        echo "$response"
-        return 0
+        # 检查响应是否包含错误
+        if echo "$response" | grep -q '"error"\|"code".*500[0-9]\|"status":[[:space:]]*[45][0-9][0-9]'; then
+            local error_type=$(parse_error_type "$response" "$(detect_provider)")
+            local error_msg=$(get_error_message "$error_type" "$response")
+
+            log_warn "API 错误 ($error_type): $error_msg"
+
+            case "$error_type" in
+                "$ERROR_TYPE_RATE_LIMIT")
+                    # 限流，指数退避重试
+                    retry_delay=$((base_delay * (2 ** (i - 1))))
+                    log_warn "等待 ${retry_delay}s 后重试 ($i/$max_retries)..."
+                    sleep $retry_delay
+                    continue
+                    ;;
+                "$ERROR_TYPE_AUTH")
+                    # 认证错误，不重试
+                    log_error "API 认证失败，请检查 OPENAI_API_KEY"
+                    echo "$response"
+                    return 1
+                    ;;
+                "$ERROR_TYPE_INVALID_REQUEST")
+                    # 请求错误，不重试
+                    log_error "请求格式错误，请检查请求参数"
+                    echo "$response"
+                    return 1
+                    ;;
+                "$ERROR_TYPE_SERVER_ERROR")
+                    # 服务器错误，重试
+                    if [ $i -lt $max_retries ]; then
+                        log_warn "服务器错误，等待 ${retry_delay}s 后重试..."
+                        sleep $retry_delay
+                        continue
+                    fi
+                    ;;
+                *)
+                    # 未知错误，尝试重试
+                    if [ $i -lt $max_retries ]; then
+                        log_warn "未知错误，等待 ${retry_delay}s 后重试..."
+                        sleep $retry_delay
+                        continue
+                    fi
+                    ;;
+            esac
+        fi
+
+        # 检查是否有有效响应
+        if echo "$response" | grep -q '"choices"\|"content"'; then
+            echo "$response"
+            return 0
+        fi
+
+        # 响应格式不正确
+        log_warn "响应格式不正确"
+        if [ $i -lt $max_retries ]; then
+            sleep $retry_delay
+            continue
+        fi
     done
 
     # 重试失败
-    log_error "API 调用失败，已达最大重试次数"
+    log_error "API 调用失败，已达最大重试次数 ($max_retries)"
     echo "$response"
     return 1
 }
