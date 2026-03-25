@@ -2,7 +2,7 @@ agent_id: coder-agent-1
 role: coder
 status: idle
 current_task: task-008
-last_heartbeat: 2026-03-25T13:32:19+00:00
+last_heartbeat: 2026-03-25T13:32:49+00:00
 started_at: 2026-03-25T13:30:57+00:00
 metadata:
   hostname: c2edbe702559
