@@ -365,8 +365,8 @@ calculate_retry_delay() {
 
     case "$error_type" in
         "$ERROR_TYPE_RATE_LIMIT")
-            # 限流：指数退避
-            echo $((base_delay * (2 ** retry_count)))
+            # 限流：指数退避 + 额外延迟 (10s, 30s, 60s, 120s, 300s)
+            echo $((base_delay * (2 ** retry_count) + retry_count * 10))
             ;;
         "$ERROR_TYPE_SERVER_ERROR")
             # 服务器错误：固定延迟
@@ -383,8 +383,8 @@ calculate_retry_delay() {
 call_glm() {
     local messages="$1"
     local tools="$2"
-    local max_retries=3
-    local base_delay=5
+    local max_retries=5
+    local base_delay=10
     local retry_delay=$base_delay
 
     local payload='{"model": "'"$OPENAI_MODEL"'", "messages": '"$messages"'}'
