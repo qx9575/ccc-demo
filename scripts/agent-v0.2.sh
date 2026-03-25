@@ -478,25 +478,145 @@ call_glm() {
     return 1
 }
 
+# 工具定义
+get_tools_definition() {
+    echo '[
+        {
+            "type": "function",
+            "function": {
+                "name": "file_read",
+                "description": "读取文件内容",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "filename": {"type": "string", "description": "文件名"}
+                    },
+                    "required": ["filename"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "file_write",
+                "description": "写入文件内容，创建文件或覆盖现有文件",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "filename": {"type": "string", "description": "文件名（可以是相对路径或绝对路径）"},
+                        "content": {"type": "string", "description": "文件内容"}
+                    },
+                    "required": ["filename", "content"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "shell_run",
+                "description": "执行 shell 命令",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "command": {"type": "string", "description": "shell 命令"}
+                    },
+                    "required": ["command"]
+                }
+            }
+        }
+    ]'
+}
+
+# 处理工具调用
+handle_tool_calls() {
+    local response="$1"
+    local tool_calls_json=$(echo "$response" | grep -o '"tool_calls":\[.*\]' | head -1)
+
+    if [ -z "$tool_calls_json" ]; then
+        return 1
+    fi
+
+    # 提取工具调用信息
+    local tool_name=$(echo "$response" | sed -n 's/.*"function":{ *"name":"\([^"]*\)".*/\1/p')
+    local tool_args=$(echo "$response" | sed -n 's/.*"arguments":"\({[^}]*}\)".*/\1/p')
+
+    log_info "工具调用: $tool_name"
+    log_info "参数: $tool_args"
+
+    # 去除转义
+    local clean_args=$(echo "$tool_args" | sed 's/\\"/"/g')
+
+    # 执行工具
+    case "$tool_name" in
+        "file_read")
+            local filename=$(echo "$clean_args" | sed -n 's/.*"filename"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+            if [ -f "$filename" ]; then
+                log_info "读取文件: $filename"
+                cat "$filename"
+            else
+                log_error "文件不存在: $filename"
+                echo "错误: 文件 $filename 不存在"
+            fi
+            ;;
+        "file_write")
+            local filename=$(echo "$clean_args" | sed -n 's/.*"filename"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+            # content 需要特殊处理，提取整个 content 字段
+            local content=$(echo "$clean_args" | sed -n 's/.*"content"[[:space:]]*:[[:space:]]*"\(.*\)".*/\1/p' | sed 's/\\n/\n/g' | sed 's/\\t/\t/g')
+            log_info "写入文件: $filename"
+
+            # 确保目录存在
+            local dir=$(dirname "$filename")
+            if [ "$dir" != "." ] && [ ! -d "$dir" ]; then
+                mkdir -p "$dir"
+            fi
+
+            echo -e "$content" > "$filename"
+            log_info "文件写入成功: $filename"
+            echo "成功写入文件: $filename"
+            ;;
+        "shell_run")
+            local command=$(echo "$clean_args" | sed -n 's/.*"command"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+            log_info "执行命令: $command"
+            eval "$command" 2>&1
+            ;;
+        *)
+            log_warn "未知工具: $tool_name"
+            echo "未知工具: $tool_name"
+            ;;
+    esac
+
+    return 0
+}
+
 chat() {
     local user_message="$1"
     local role_prompt="${AGENT_PROMPT:-你是$AGENT_NAME，一个专业的$AGENT_ROLE角色。}"
 
     local messages='[
-        {"role": "system", "content": "'"$role_prompt"'"},
+        {"role": "system", "content": "'"$role_prompt"'。你有以下工具可用：file_read, file_write, shell_run。当需要创建或修改文件时，使用 file_write 工具。"},
         {"role": "user", "content": "'"$user_message"'"}
     ]'
 
-    log_info "发送请求到 LLM..."
-    local response=$(call_glm "$messages")
+    local tools=$(get_tools_definition)
 
-    local content=$(echo "$response" | grep -o '"content":"[^"]*"' | head -1 | sed 's/"content":"//;s/"$//')
+    log_info "发送请求到 LLM（带工具）..."
+    local response=$(call_glm "$messages" "$tools")
 
-    if [ -n "$content" ]; then
-        log_agent "$content"
+    # 检查是否有工具调用
+    local tool_calls=$(echo "$response" | grep -o '"tool_calls":\[.*\]' | head -1)
+
+    if [ -n "$tool_calls" ]; then
+        log_info "检测到工具调用"
+        handle_tool_calls "$response"
     else
-        log_error "API 调用失败"
-        echo "$response"
+        # 提取回复内容
+        local content=$(echo "$response" | grep -o '"content":"[^"]*"' | head -1 | sed 's/"content":"//;s/"$//')
+        if [ -n "$content" ]; then
+            log_agent "$content"
+        else
+            log_error "API 调用失败"
+            echo "$response"
+        fi
     fi
 }
 
