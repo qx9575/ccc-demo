@@ -19,8 +19,11 @@ services:
       - AGENT_NAME=程序员
       - WORKSPACE=/workspace
       - POLL_INTERVAL=30
+      - GIT_USER_NAME=coder-agent
+      - GIT_USER_EMAIL=coder@agent.local
     volumes:
       - ./:/workspace
+      - ~/.ssh:/root/.ssh:ro
     working_dir: /workspace
     stdin_open: true
     tty: true
@@ -46,8 +49,11 @@ services:
       - AGENT_NAME=项目经理
       - WORKSPACE=/workspace
       - POLL_INTERVAL=60
+      - GIT_USER_NAME=pm-agent
+      - GIT_USER_EMAIL=pm@agent.local
     volumes:
       - ./:/workspace
+      - ~/.ssh:/root/.ssh:ro
     working_dir: /workspace
     stdin_open: true
     tty: true
@@ -73,8 +79,11 @@ services:
       - AGENT_NAME=代码审查员
       - WORKSPACE=/workspace
       - POLL_INTERVAL=30
+      - GIT_USER_NAME=reviewer-agent
+      - GIT_USER_EMAIL=reviewer@agent.local
     volumes:
       - ./:/workspace
+      - ~/.ssh:/root/.ssh:ro
     working_dir: /workspace
     stdin_open: true
     tty: true

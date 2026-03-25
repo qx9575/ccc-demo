@@ -71,7 +71,7 @@ init_coordinator_dirs() {
 
 git_sync_pull() {
     local branch="${1:-main}"
-    log_coord "拉取最新代码 ($branch)..."
+    log_coord "拉取最新代码 ($branch)..." >&2
     git fetch origin "$branch" -q 2>/dev/null || true
     git pull --rebase origin "$branch" -q 2>/dev/null || true
 }
@@ -197,16 +197,34 @@ update_task_state() {
 # Task Claiming (Atomic Lock)
 # ============================================
 
+# Helper function to get ISO timestamp (BusyBox compatible)
+get_iso_timestamp() {
+    date -u +"%Y-%m-%dT%H:%M:%SZ"
+}
+
+# Helper function to get future timestamp (BusyBox compatible)
+get_future_timestamp() {
+    local seconds="$1"
+    # BusyBox date uses different syntax
+    if date -u +"%Y-%m-%dT%H:%M:%SZ" -d "@$(( $(date +%s) + seconds ))" 2>/dev/null; then
+        return
+    fi
+    # Fallback: GNU date syntax
+    date -Iseconds -d "+${seconds} seconds" 2>/dev/null || date -u +"%Y-%m-%dT%H:%M:%SZ"
+}
+
 create_lock_file() {
     local task_id="$1"
     local agent_id="${2:-$AGENT_ID}"
     local lock_file="$TASKS_DIR/in-progress/${task_id}.lock"
+    local now_ts=$(get_iso_timestamp)
+    local expire_ts=$(get_future_timestamp "$LOCK_TIMEOUT")
 
     cat > "$lock_file" << EOF
 agent_id: $agent_id
-locked_at: $(date -Iseconds)
-expires_at: $(date -Iseconds -d "+${LOCK_TIMEOUT} seconds")
-heartbeat: $(date -Iseconds)
+locked_at: $now_ts
+expires_at: $expire_ts
+heartbeat: $now_ts
 task_id: $task_id
 EOF
 
@@ -227,7 +245,7 @@ check_lock_valid() {
     local now_ts=$(date +%s)
 
     if [ $now_ts -gt $expires_ts ]; then
-        log_lock "锁已过期: $task_id"
+        log_lock "锁已过期: $task_id" >&2
         rm -f "$lock_file"
         return 1  # Expired
     fi
@@ -257,7 +275,7 @@ claim_task() {
     local task_id="$1"
     local agent_id="${2:-$AGENT_ID}"
 
-    log_coord "尝试认领任务: $task_id"
+    log_coord "尝试认领任务: $task_id" >&2
 
     # 1. Pull latest
     git_sync_pull
@@ -265,7 +283,7 @@ claim_task() {
     # 2. Check if task exists and is pending
     local state=$(get_task_state "$task_id")
     if [ "$state" != "pending" ]; then
-        log_error "任务不可用 (状态: $state)"
+        log_error "任务不可用 (状态: $state)" >&2
         return 1
     fi
 
@@ -346,7 +364,7 @@ check_dependencies() {
         if [ -n "$dep" ] && [ "$dep" != "dependencies:" ]; then
             local dep_state=$(get_task_state "$dep")
             if [ "$dep_state" != "completed" ]; then
-                log_coord "依赖未满足: $dep (状态: $dep_state)"
+                log_coord "依赖未满足: $dep (状态: $dep_state)" >&2
                 return 1
             fi
         fi

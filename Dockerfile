@@ -12,6 +12,8 @@ RUN apk add --no-cache \
     bash \
     curl \
     git \
+    git-lfs \
+    openssh-client \
     ca-certificates \
     tzdata \
     jq \
