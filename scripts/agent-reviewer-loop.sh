@@ -413,5 +413,6 @@ reviewer_main_loop() {
 # 入口
 # ============================================
 
-reviewer_init
-reviewer_main_loop
+# 不在这里调用，由 agent-v0.2.sh 在加载完所有函数后调用
+# reviewer_init
+# reviewer_main_loop

@@ -67,23 +67,24 @@ coder_execute_task() {
     set_active "$task_id"
 
     # 构建 AI 提示词
-    local prompt="你是$AGENT_NAME，一个专业的程序员。
-
-请完成以下任务：
+    local prompt="你必须使用 file_write 工具来完成此任务。不要只是描述代码，必须实际调用工具创建文件。
 
 任务 ID: $task_id
 标题: $title
 描述:
 $description
 
-请按照以下步骤执行：
-1. 分析任务需求
-2. 编写代码实现（必须创建实际文件）
-3. 编写测试用例
-4. 运行测试验证
-5. 提交代码
+请按照以下步骤执行（必须使用工具）：
+1. 使用 file_write 工具创建 src/ 目录下的代码文件
+2. 使用 file_write 工具创建 tests/ 目录下的测试文件
+3. 使用 shell_run 工具运行测试验证
 
-重要：你必须实际创建代码文件，不能只是描述。完成后请报告结果。"
+重要提示：
+- 你必须实际调用 file_write 工具来创建文件
+- 不要只返回代码内容，必须调用工具
+- 示例：调用 file_write(filename=\"src/string_utils.py\", content=\"...\") 创建文件
+
+现在开始执行任务。"
 
     # 调用 AI 执行任务
     local response=$(chat "$prompt")
@@ -679,5 +680,6 @@ coder_main_loop() {
 # 入口
 # ============================================
 
-coder_init
-coder_main_loop
+# 不在这里调用，由 agent-v0.2.sh 在加载完所有函数后调用
+# coder_init
+# coder_main_loop

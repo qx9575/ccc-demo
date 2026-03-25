@@ -169,6 +169,9 @@ run_role_loop() {
                 log_error "PM 循环脚本不存在"
                 exit 1
             fi
+            # 调用入口函数（在所有函数加载后）
+            pm_init
+            pm_main_loop
             ;;
         coder)
             log_role "启动 Coder Agent 循环"
@@ -180,6 +183,9 @@ run_role_loop() {
                 log_error "Coder 循环脚本不存在"
                 exit 1
             fi
+            # 调用入口函数（在所有函数加载后）
+            coder_init
+            coder_main_loop
             ;;
         reviewer)
             log_role "启动 Reviewer Agent 循环"
@@ -191,6 +197,9 @@ run_role_loop() {
                 log_error "Reviewer 循环脚本不存在"
                 exit 1
             fi
+            # 调用入口函数（在所有函数加载后）
+            reviewer_init
+            reviewer_main_loop
             ;;
         *)
             log_error "未知角色: $role"
@@ -593,7 +602,7 @@ chat() {
     local role_prompt="${AGENT_PROMPT:-你是$AGENT_NAME，一个专业的$AGENT_ROLE角色。}"
 
     local messages='[
-        {"role": "system", "content": "'"$role_prompt"'。你有以下工具可用：file_read, file_write, shell_run。当需要创建或修改文件时，使用 file_write 工具。"},
+        {"role": "system", "content": "'"$role_prompt"'。你有以下工具可用：file_read, file_write, shell_run。当需要创建或修改文件时，必须使用 file_write 工具。"},
         {"role": "user", "content": "'"$user_message"'"}
     ]'
 
@@ -602,20 +611,37 @@ chat() {
     log_info "发送请求到 LLM（带工具）..."
     local response=$(call_glm "$messages" "$tools")
 
+    # 调试：打印响应的前 500 字符
+    log_info "API 响应预览: $(echo "$response" | head -c 500)"
+
     # 检查是否有工具调用
+    # 工具调用格式可能是 "tool_calls" 或 "function_call"
     local tool_calls=$(echo "$response" | grep -o '"tool_calls":\[.*\]' | head -1)
+    local function_call=$(echo "$response" | grep -o '"function_call":{[^}]*}' | head -1)
 
     if [ -n "$tool_calls" ]; then
-        log_info "检测到工具调用"
+        log_info "检测到 tool_calls 调用"
         handle_tool_calls "$response"
+    elif [ -n "$function_call" ]; then
+        log_info "检测到 function_call 调用"
+        # 处理旧版 function_call 格式
+        local tool_name=$(echo "$function_call" | sed -n 's/.*"name":"\([^"]*\)".*/\1/p')
+        local tool_args=$(echo "$function_call" | sed -n 's/.*"arguments":"\([^"]*\)".*/\1/p')
+        log_info "工具: $tool_name, 参数: $tool_args"
+
+        # 构造兼容的响应格式并调用处理函数
+        local fake_response='{"tool_calls":[{"id":"call_1","type":"function","function":{"name":"'"$tool_name"'","arguments":"'"$tool_args"'"}}]}'
+        handle_tool_calls "$fake_response"
     else
         # 提取回复内容
         local content=$(echo "$response" | grep -o '"content":"[^"]*"' | head -1 | sed 's/"content":"//;s/"$//')
         if [ -n "$content" ]; then
             log_agent "$content"
+            # 如果模型只返回文本而没有使用工具，记录警告
+            log_warn "模型返回文本而非工具调用，请检查模型是否支持 function calling"
         else
             log_error "API 调用失败"
-            echo "$response"
+            log_error "完整响应: $response"
         fi
     fi
 }
