@@ -83,6 +83,7 @@ reviewer_review_task() {
 
     if [ ! -f "$task_file" ]; then
         log_error "任务文件不存在: $task_id"
+        echo "rejected|任务文件不存在"
         return 1
     fi
 
@@ -104,6 +105,7 @@ reviewer_review_task() {
 
     if [ -z "$changed_files" ]; then
         log_warn "未找到变更文件"
+        echo "rejected|未找到代码变更。请确保已创建所需的代码文件。"
         return 1
     fi
 
@@ -122,6 +124,22 @@ reviewer_review_task() {
         fi
     done
 
+    # 提取验收标准
+    local acceptance_criteria=""
+    local in_criteria=false
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^acceptance_criteria: ]]; then
+            in_criteria=true
+            continue
+        fi
+        if [ "$in_criteria" = true ]; then
+            if [[ "$line" =~ ^[a-z_]+: ]] && [[ ! "$line" =~ ^[[:space:]]*- ]]; then
+                break
+            fi
+            acceptance_criteria="$acceptance_criteria$line\n"
+        fi
+    done < "$task_file"
+
     # 构建 AI 审查提示词
     local prompt="你是$AGENT_NAME，一个资深的代码审查员。
 
@@ -131,6 +149,9 @@ reviewer_review_task() {
 标题: $title
 描述:
 $description
+
+验收标准:
+$acceptance_criteria
 
 审查标准：
 $REVIEW_STANDARDS_CONTENT
@@ -144,11 +165,12 @@ $changes_content
 [approved / rejected]
 
 ## 审查意见
-[详细的审查意见，包括：
+[详细的审查意见，必须包括：
 - 代码质量评价
-- 发现的问题
-- 改进建议
-- 测试覆盖情况]
+- 发现的具体问题（如果有）
+- 改进建议（如果需要）
+- 测试覆盖情况
+- 验收标准完成情况]
 
 ## 决定
 [最终决定及理由]"
@@ -165,7 +187,8 @@ $changes_content
         decision="rejected"
     fi
 
-    echo "$decision"
+    # 返回决定和审查意见
+    echo "$decision|$review_result"
 }
 
 # 发送审查结果
@@ -251,17 +274,21 @@ reviewer_handle_review_request() {
     fi
 
     # 执行审查
-    local decision=$(reviewer_review_task "$task_id")
+    local review_output=$(reviewer_review_task "$task_id")
+    local decision=$(echo "$review_output" | cut -d'|' -f1)
+    local review_comments=$(echo "$review_output" | cut -d'|' -f2-)
 
     # 获取变更文件
     local changed_files=$(reviewer_get_changes "$task_id")
 
     # 发送审查结果
-    local comments="审查完成"
+    local comments=""
     if [ "$decision" = "approved" ]; then
-        comments="代码审查通过。代码质量良好，符合标准。"
+        comments="代码审查通过。\n\n$review_comments"
     else
-        comments="代码需要修改。请参考审查意见进行改进。"
+        # 提取审查意见中的关键问题
+        local specific_issues=$(echo "$review_comments" | grep -A 10 "## 审查意见" | head -20)
+        comments="代码需要修改。\n\n具体问题：\n$specific_issues"
     fi
 
     reviewer_send_result "$task_id" "$decision" "$comments" "$changed_files"
@@ -298,7 +325,9 @@ reviewer_check_review_queue() {
             log_role "发现待审查任务: $task_id - $title"
 
             # 执行审查
-            local decision=$(reviewer_review_task "$task_id")
+            local review_output=$(reviewer_review_task "$task_id")
+            local decision=$(echo "$review_output" | cut -d'|' -f1)
+            local review_comments=$(echo "$review_output" | cut -d'|' -f2-)
 
             # 获取变更文件
             local changed_files=$(reviewer_get_changes "$task_id")
@@ -306,9 +335,11 @@ reviewer_check_review_queue() {
             # 发送审查结果
             local comments=""
             if [ "$decision" = "approved" ]; then
-                comments="代码审查通过。"
+                comments="代码审查通过。\n\n$review_comments"
             else
-                comments="代码需要修改。"
+                # 提取审查意见中的关键问题
+                local specific_issues=$(echo "$review_comments" | grep -A 10 "## 审查意见" | head -20)
+                comments="代码需要修改。\n\n具体问题：\n$specific_issues"
             fi
 
             reviewer_send_result "$task_id" "$decision" "$comments" "$changed_files"

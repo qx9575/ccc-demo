@@ -78,12 +78,12 @@ $description
 
 请按照以下步骤执行：
 1. 分析任务需求
-2. 编写代码实现
+2. 编写代码实现（必须创建实际文件）
 3. 编写测试用例
 4. 运行测试验证
 5. 提交代码
 
-完成后请报告结果。"
+重要：你必须实际创建代码文件，不能只是描述。完成后请报告结果。"
 
     # 调用 AI 执行任务
     local response=$(chat "$prompt")
@@ -94,6 +94,75 @@ $description
         return 0
     else
         log_error "任务执行失败: $task_id"
+        return 1
+    fi
+}
+
+# 验证任务完成情况
+coder_verify_task_completion() {
+    local task_id="$1"
+    local task_file=$(get_task_file "$task_id")
+
+    log_role "验证任务完成情况: $task_id"
+
+    local verification_passed=true
+    local verification_details=""
+
+    # 提取验收标准
+    local in_criteria=false
+    local criteria_list=""
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^acceptance_criteria: ]]; then
+            in_criteria=true
+            continue
+        fi
+        if [ "$in_criteria" = true ]; then
+            if [[ "$line" =~ ^[a-z_]+: ]] && [[ ! "$line" =~ ^[[:space:]]*- ]]; then
+                break
+            fi
+            if [[ "$line" =~ ^[[:space:]]*- ]]; then
+                criteria_list="$criteria_list$line\n"
+            fi
+        fi
+    done < "$task_file"
+
+    # 检查每个验收标准
+    if [ -n "$criteria_list" ]; then
+        log_role "检查验收标准..."
+        while IFS= read -r criterion; do
+            criterion=$(echo "$criterion" | sed 's/^[[:space:]]*- //')
+            if [ -n "$criterion" ]; then
+                log_role "  检查: $criterion"
+                # 简单验证：检查是否创建了文件
+                if [[ "$criterion" =~ 创建|编写|实现 ]]; then
+                    # 提取可能的文件名
+                    local filename=$(echo "$criterion" | grep -oE '[a-zA-Z0-9_]+\.(py|js|ts|sh|yaml|md)' | head -1)
+                    if [ -n "$filename" ]; then
+                        # 在多个目录搜索
+                        local found=false
+                        for dir in src tests .; do
+                            if [ -f "$dir/$filename" ]; then
+                                found=true
+                                log_role "    ✓ 找到文件: $dir/$filename"
+                                break
+                            fi
+                        done
+                        if [ "$found" = false ]; then
+                            log_role "    ✗ 未找到文件: $filename"
+                            verification_passed=false
+                            verification_details="$verification_details\n- 未创建: $filename"
+                        fi
+                    fi
+                fi
+            fi
+        done <<< "$(echo -e "$criteria_list")"
+    fi
+
+    if [ "$verification_passed" = true ]; then
+        log_role "任务验证通过"
+        return 0
+    else
+        log_error "任务验证失败:$verification_details"
         return 1
     fi
 }
@@ -110,6 +179,12 @@ coder_commit_changes() {
         log_role "没有代码变更"
         return 0
     fi
+
+    # 显示变更
+    log_role "变更文件:"
+    echo "$changes" | while read -r line; do
+        log_role "  $line"
+    done
 
     # 提交代码
     git add -A
@@ -413,10 +488,16 @@ coder_main_loop() {
 
                     # 执行任务
                     if coder_execute_task "$task_id"; then
-                        # 提交代码
-                        if coder_commit_changes "$task_id"; then
-                            # 请求审查
-                            coder_request_review "$task_id"
+                        # 验证任务完成情况
+                        if coder_verify_task_completion "$task_id"; then
+                            # 提交代码
+                            if coder_commit_changes "$task_id"; then
+                                # 请求审查
+                                coder_request_review "$task_id"
+                            fi
+                        else
+                            log_error "任务验证失败，请检查是否创建了所需文件"
+                            release_task "$task_id" "$AGENT_ID" "verification_failed"
                         fi
                     else
                         release_task "$task_id" "$AGENT_ID" "execution_failed"
@@ -437,17 +518,25 @@ coder_main_loop() {
                 if [ "$status" = "changes_requested" ]; then
                     log_role "处理需要修改的任务: $task_id"
 
-                    # 查看审查意见
-                    local comments=$(grep "rejection_reason:" "$task_file" | cut -d: -f2- | sed 's/^ *//')
+                    # 获取所有审查意见（可能有多次驳回）
+                    local comments=$(grep "rejection_reason:" "$task_file" | tail -1 | cut -d: -f2- | sed 's/^ *//')
+                    local all_reviews=$(grep -A 5 "^review:" "$task_file" | tail -10)
                     log_role "审查意见: $comments"
+                    log_role "历史审查: $all_reviews"
 
                     # 执行修改
                     export CURRENT_TASK="$task_id"
                     set_active "$task_id"
 
                     if coder_execute_task "$task_id"; then
-                        if coder_commit_changes "$task_id"; then
-                            coder_request_review "$task_id"
+                        # 验证修改是否完成
+                        if coder_verify_task_completion "$task_id"; then
+                            if coder_commit_changes "$task_id"; then
+                                coder_request_review "$task_id"
+                            fi
+                        else
+                            log_error "修改后仍未满足验收标准"
+                            release_task "$task_id" "$AGENT_ID" "verification_failed"
                         fi
                     fi
 
