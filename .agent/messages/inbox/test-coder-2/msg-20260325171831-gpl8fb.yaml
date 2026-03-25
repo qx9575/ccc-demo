@@ -1,0 +1,15 @@
+id: msg-20260325171831-gpl8fb
+from: test-coder-1
+to: test-coder-2
+type: task_assign
+priority: normal
+created_at: 2026-03-25T17:18:31+08:00
+read_at: null
+acknowledged_at: null
+requires_ack: true
+content:
+  task_id: test-task-001
+  task_title: 测试任务
+  priority: P1
+  action: assign
+
