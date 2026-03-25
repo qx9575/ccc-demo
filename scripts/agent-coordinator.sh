@@ -196,6 +196,15 @@ update_task_state() {
         git mv "$current_file" "$target_dir/" 2>/dev/null || \
             mv "$current_file" "$target_dir/"
 
+        # Handle lock file: delete when moving to review or archived
+        local lock_file="$TASKS_DIR/in-progress/${task_id}.lock"
+        if [ "$new_state" = "review" ] || [ "$new_state" = "archived" ]; then
+            if [ -f "$lock_file" ]; then
+                rm -f "$lock_file"
+                log_coord "删除锁文件: $lock_file"
+            fi
+        fi
+
         log_coord "任务状态更新: $task_id [$current_state -> $new_state]"
         return 0
     else
