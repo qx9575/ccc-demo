@@ -1,0 +1,37 @@
+# ============ 提交归档 ============
+sha: 32a589b
+short_sha: 32a589b
+committed_at: 2026-03-25T12:40:01Z
+committed_by: pm-agent
+author_email: pm@agent.local
+
+# ============ 提交类型 ============
+type: chore
+scope: general
+breaking_change: false
+
+# ============ 提交内容 ============
+subject: |
+  chore: 提交审查 task-006 by coder-agent-1
+description: |
+  
+
+# ============ 变更文件 ============
+files_changed:
+  - path: .agent/tasks/{in-progress
+    change_type: modified
+    lines_added: 0
+    lines_deleted: 0
+
+# ============ 关联信息 ============
+related:
+  task: task-006
+  task_archive: archives/tasks/2026-03/task-006.yaml
+  test_report: null
+  review_result: null
+
+# ============ 统计 ============
+statistics:
+  files_changed: 1
+  lines_added: 5
+  lines_deleted: 1
