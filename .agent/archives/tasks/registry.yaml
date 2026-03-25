@@ -1,0 +1,15 @@
+# ============ 任务注册表 ============
+# 此文件跟踪所有归档任务的索引
+# 由 archive-task.sh 自动维护
+
+generated_at: 2026-03-25T00:00:00Z
+
+statistics:
+  total_tasks: 0
+  completed: 0
+  in_progress: 0
+  pending: 0
+
+months: {}
+
+recent: []

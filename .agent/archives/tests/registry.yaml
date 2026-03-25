@@ -1,0 +1,14 @@
+# ============ 测试注册表 ============
+# 此文件跟踪所有测试归档的索引
+# 由 archive-task.sh 自动维护
+
+generated_at: 2026-03-25T00:00:00Z
+
+statistics:
+  total_tests: 0
+  passed: 0
+  failed: 0
+
+months: {}
+
+recent: []

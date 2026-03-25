@@ -1,0 +1,19 @@
+# ============ 提交注册表 ============
+# 此文件跟踪所有提交记录的索引
+# 由 archive-task.sh 自动维护
+
+generated_at: 2026-03-25T00:00:00Z
+
+statistics:
+  total_commits: 0
+  by_type:
+    feat: 0
+    fix: 0
+    refactor: 0
+    docs: 0
+    test: 0
+    chore: 0
+
+months: {}
+
+recent: []

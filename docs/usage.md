@@ -314,6 +314,94 @@ description: |
 | `agent-pm-loop.sh` | PM Agent 循环 |
 | `agent-coder-loop.sh` | Coder Agent 循环 |
 | `agent-reviewer-loop.sh` | Reviewer Agent 循环 |
+| `archive-task.sh` | 任务归档脚本 |
+| `archive-utils.sh` | 归档工具函数 |
+
+---
+
+## 归档系统
+
+### 归档目录结构
+
+```
+.agent/archives/
+├── tasks/                    # 任务归档
+│   ├── registry.yaml        # 全局任务索引
+│   └── 2026-03/             # 按月归档
+│       ├── task-xxx.yaml    # 任务完整记录
+│       └── index.yaml       # 月度索引
+├── tests/                    # 测试归档
+│   ├── registry.yaml        # 全局测试索引
+│   └── 2026-03/
+│       └── task-xxx/        # 按任务组织
+│           ├── test_report.yaml   # 测试报告
+│           └── test_xxx.py        # 测试脚本快照
+└── commits/                  # 提交记录归档
+    ├── registry.yaml        # 全局提交索引
+    └── 2026-03/
+        ├── commit-xxx.yaml  # 每次提交一条
+        └── index.yaml
+```
+
+### 手动归档任务
+
+```bash
+# 归档完成的任务
+./scripts/archive-task.sh task-006
+
+# 归档并包含测试报告
+./scripts/archive-task.sh task-006 --test-report path/to/report
+```
+
+### Git 提交模板
+
+项目使用规范的提交消息格式：
+
+```bash
+# 配置提交模板
+git config commit.template .git-commit-template
+
+# 提交消息格式
+<type>(<scope>): <subject>
+
+<body>
+
+Related: <task-id>
+Files: <changed-files>
+Tests: <test-status>
+
+Co-Authored-By: <agent-id>
+```
+
+**提交类型**：
+- `feat`: 新功能
+- `fix`: Bug 修复
+- `refactor`: 重构
+- `docs`: 文档变更
+- `test`: 测试相关
+- `chore`: 构建/工具/配置
+
+### 归档内容说明
+
+**任务归档**（task-xxx.yaml）：
+- 任务基本信息（ID、标题、优先级、角色）
+- 完整生命周期（创建、开始、提交、审查、完成时间）
+- 验收标准及完成状态
+- 产出物列表（代码文件、测试报告）
+- 提交记录关联
+- 审查历史
+
+**测试归档**（test_report.yaml）：
+- 测试概要（通过/失败数量、覆盖率）
+- 测试用例详情
+- 测试脚本快照（保留当时版本）
+- 原始测试输出
+
+**提交记录**（commit-xxx.yaml）：
+- 提交 SHA 和作者
+- 提交类型和范围
+- 变更文件列表
+- 关联任务和测试报告
 
 ---
 
