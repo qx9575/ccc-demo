@@ -1,29 +1,76 @@
 # 项目进度
 
 ## 当前阶段
-v0.2 多 Agent 协作已完成
+v0.2 多 Agent 协作已完成，归档系统已实现
 
 ## v0.2 多 Agent 协作完成情况
 - [x] PM/Coder/Reviewer 三角色协作
 - [x] 文件级消息传递（inbox/outbox）
 - [x] 心跳监控（在线检测）
-- [x] 任务状态机（pending → in-progress → review → completed）
+- [x] 任务状态机（pending → in-progress → review → archived）
 - [x] 原子任务认领（锁机制）
 - [x] Git 同步与冲突处理
 - [x] 多模型支持（GLM/GPT/DeepSeek/Kimi）
 - [x] Docker Compose 多容器部署
 - [x] SSH 支持（Git push）
+- [x] 归档系统（任务/测试/提交按月归档）
+- [x] Git 提交模板规范化
 
 ## v0.2 已测试功能
 | 功能 | 状态 | 说明 |
 |------|------|------|
 | 任务认领 | ✅ | 原子锁机制正常 |
-| 任务状态流转 | ✅ | pending→in-progress→review→completed |
+| 任务状态流转 | ✅ | pending→in-progress→review→archived |
 | Agent 间消息 | ✅ | 消息发送/读取/确认 |
 | 心跳监控 | ✅ | 30s 更新，离线检测 |
 | Git 同步 | ✅ | pull/push/冲突重试 |
 | 多模型 API | ✅ | GLM/GPT/DeepSeek/Kimi |
 | Docker 部署 | ✅ | 三个容器同时运行 |
+| 任务归档 | ✅ | 按月归档，包含生命周期记录 |
+| 测试归档 | ✅ | 测试脚本快照 + 测试报告 |
+| 提交归档 | ✅ | 提交类型解析 + 文件变更记录 |
+
+## 归档系统
+### 目录结构
+```
+.agent/archives/
+├── tasks/
+│   ├── registry.yaml       # 全局任务索引
+│   └── 2026-03/            # 按月归档
+│       ├── index.yaml      # 月度索引
+│       └── task-xxx.yaml   # 任务完整记录
+├── tests/
+│   ├── registry.yaml
+│   └── 2026-03/
+│       └── task-xxx/
+│           ├── test_report.yaml
+│           └── test_*.py   # 测试脚本快照
+└── commits/
+    ├── registry.yaml
+    └── 2026-03/
+        ├── index.yaml
+        └── commit-xxx.yaml # 提交记录
+```
+
+### 已归档内容
+- 任务: task-001 ~ task-005 (5个)
+- 测试: task-005 测试套件 (4个文件)
+- 提交: 4 条提交记录
+
+## Git 提交模板
+```
+<type>(<scope>): <subject>
+
+<body>
+
+Related: <task-id>
+Files: <changed-files>
+Tests: <test-status>
+
+Co-Authored-By: <agent-id>
+```
+
+支持类型: feat/fix/refactor/docs/test/chore/style/perf
 
 ## v0.1 MVP 完成情况
 - [x] GLM Provider（OpenAI 兼容接口）
