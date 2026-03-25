@@ -2,8 +2,8 @@ agent_id: pm-agent-1
 role: pm
 status: active
 current_task: null
-last_heartbeat: 2026-03-25T13:51:20+00:00
-started_at: 2026-03-25T13:45:43+00:00
+last_heartbeat: 2026-03-25T13:52:07+00:00
+started_at: 2026-03-25T13:52:07+00:00
 metadata:
-  hostname: 188552f32c42
+  hostname: e57abd1ef6f2
   pid: 1
