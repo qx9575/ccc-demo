@@ -2,8 +2,8 @@ agent_id: reviewer-agent-1
 role: reviewer
 status: idle
 current_task: null
-last_heartbeat: 2026-03-25T13:14:09+00:00
-started_at: 2026-03-25T13:11:34+00:00
+last_heartbeat: 2026-03-25T13:14:59+00:00
+started_at: 2026-03-25T13:14:59+00:00
 metadata:
-  hostname: 10b59a061ced
+  hostname: d04a689584b4
   pid: 1
