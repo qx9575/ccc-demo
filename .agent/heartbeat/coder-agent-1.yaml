@@ -1,9 +1,9 @@
 agent_id: coder-agent-1
 role: coder
-status: active
-current_task: task-test-archive
-last_heartbeat: 2026-03-25T12:40:56+00:00
-started_at: 2026-03-25T12:38:08+00:00
+status: idle
+current_task: null
+last_heartbeat: 2026-03-25T13:07:08+00:00
+started_at: 2026-03-25T13:07:08+00:00
 metadata:
-  hostname: 8c6a8dee4c96
+  hostname: d45b76af88b1
   pid: 1
