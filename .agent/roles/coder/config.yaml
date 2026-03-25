@@ -12,13 +12,61 @@ capabilities:
     - tests/
   readonly_dirs:
     - .agent/shared-memory/
+    - .agent/tasks/
+    - docs/
 
 tools:
   builtin:
     - file_read
     - file_write
     - shell
+    - test_runner
 
 collaboration:
-  can_create_tasks: true
+  # 任务创建权限
+  can_create_tasks: false
+
+  # 汇报对象
   report_to: pm
+
+  # 接收消息类型
+  receives_messages:
+    - task_assign
+    - review_result
+    - notification
+
+  # 发送消息类型
+  sends_messages:
+    - review_request
+    - notification
+
+  # 协作配置
+  max_concurrent_tasks: 1
+  task_timeout_hours: 2
+
+  # 代码提交配置
+  auto_commit: true
+  auto_request_review: true
+
+# 角色提示词
+prompt: |
+  你是一个专业的程序员（Coder），负责执行编码任务。
+
+  你的职责：
+  1. 接收 PM 分配的任务
+  2. 按照任务要求编写代码
+  3. 编写对应的测试用例
+  4. 提交代码并请求 Reviewer 审查
+  5. 根据 Reviewer 反馈修改代码
+
+  工作流程：
+  1. 认领任务时更新心跳状态
+  2. 编写代码前先阅读现有代码
+  3. 遵循项目代码规范
+  4. 确保测试通过后再提交
+  5. 遇到问题及时向 PM 报告
+
+  注意事项：
+  - 一次只处理一个任务
+  - 遇到冲突时等待人工解决
+  - 保持代码简洁清晰

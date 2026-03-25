@@ -10,7 +10,16 @@
   - 简单直接，适合 MVP
 - API: GLM-5（OpenAI 兼容接口）
 
-### v0.2+（计划）
+### v0.2 多 Agent 协作（Bash 实现）
+- 语言: Bash
+- 新增功能:
+  - PM/Coder/Reviewer 三角色协作
+  - 文件级消息传递
+  - 心跳监控
+  - 任务状态机
+- API: GLM-4-plus（PM/Reviewer）、GLM-4-flash（Coder）
+
+### v0.3+（计划）
 - 语言: Python 3.11+
 - 框架: 待定
 - 数据库: 待定
@@ -21,21 +30,40 @@
 ccc-demo/
 ├── scripts/
 │   ├── agent-v0.1.sh              # v0.1 主入口
+│   ├── agent-v0.2.sh              # v0.2 多 Agent 入口
+│   ├── agent-coordinator.sh       # 任务协调
+│   ├── agent-messaging.sh         # 消息传递
+│   ├── agent-heartbeat.sh         # 心跳监控
+│   ├── agent-pm-loop.sh           # PM Agent 循环
+│   ├── agent-coder-loop.sh        # Coder Agent 循环
+│   ├── agent-reviewer-loop.sh     # Reviewer Agent 循环
 │   └── agent-loop-with-conflict-recovery.sh  # 冲突恢复循环
 ├── .agent/
 │   ├── roles/
-│   │   ├── coder/prompt.md        # 程序员角色
-│   │   ├── pm/prompt.md           # 项目经理角色
-│   │   └── reviewer/prompt.md     # 审查者角色
-│   ├── shared-memory/
-│   │   ├── architecture.md        # 架构文档
-│   │   ├── progress.md            # 进度记录
-│   │   └── conflict-quick-reference.md
+│   │   ├── coder/config.yaml      # 程序员配置
+│   │   ├── pm/config.yaml         # 项目经理配置
+│   │   └── reviewer/config.yaml   # 审查者配置
 │   ├── tasks/                     # 任务文件
+│   │   ├── pending/               # 待认领
+│   │   ├── assigned/              # 已分配
+│   │   ├── in-progress/           # 进行中
+│   │   ├── review/                # 待审查
+│   │   └── completed/             # 已完成
+│   ├── messages/                  # Agent 间消息
+│   │   ├── inbox/{agent-id}/      # 收件箱
+│   │   ├── outbox/                # 发件箱
+│   │   └── archive/               # 归档
+│   ├── heartbeat/                 # 心跳状态
 │   ├── conflicts/                 # 冲突报告
-│   └── notifications/             # 通知文件
-├── src/                           # Python 源码（v0.2+）
+│   ├── notifications/             # 通知文件
+│   ├── shared-memory/             # 共享文档
+│   ├── coordination/              # 协调数据
+│   └── review-standards.md        # 审查标准
 ├── tests/
+│   └── test-multi-agent.sh        # 多 Agent 测试
+├── docs/
+│   └── usage.md                   # 使用文档
+├── src/                           # Python 源码（v0.3+）
 ├── Dockerfile
 ├── docker-compose.yaml
 ├── start.sh
@@ -44,12 +72,12 @@ ccc-demo/
 
 ## 编码规范
 
-### Bash (v0.1)
+### Bash (v0.1/v0.2)
 - 使用 `set -e` 错误退出
 - 函数必须有注释说明
 - 日志使用统一格式（log_info/log_warn/log_error）
 
-### Python (v0.2+)
+### Python (v0.3+)
 - 使用 type hints
 - 函数必须有 docstring
 - 测试覆盖率 > 80%

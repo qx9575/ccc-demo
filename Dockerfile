@@ -1,11 +1,11 @@
-# Agent v0.1 - 最小镜像
-# 基于 Alpine Linux，体积 < 100MB
+# Agent v0.2 - 多 Agent 协作
+# 基于 Alpine Linux，支持 PM/Coder/Reviewer 三个角色
 
 FROM alpine:3.19
 
 LABEL maintainer="agent-framework"
-LABEL version="v0.1"
-LABEL description="Agent v0.1 MVP - CLI 交互模式"
+LABEL version="v0.2"
+LABEL description="Agent v0.2 - 多 Agent 协作模式"
 
 # 安装依赖
 RUN apk add --no-cache \
@@ -15,6 +15,7 @@ RUN apk add --no-cache \
     ca-certificates \
     tzdata \
     jq \
+    yq \
     && rm -rf /var/cache/apk/*
 
 # 创建非 root 用户（可选，v0.5 后启用）
@@ -31,17 +32,35 @@ ENV OPENAI_API_KEY=""
 ENV OPENAI_BASE_URL="https://maas-api.ai-yuanjing.com/openapi/compatible-mode/v1"
 ENV OPENAI_MODEL="glm-5"
 ENV WORKSPACE="/workspace"
+ENV POLL_INTERVAL="30"
 
-# 复制脚本和配置
+# 复制脚本
+# v0.1 脚本（保留向后兼容）
 COPY scripts/agent-v0.1.sh /app/agent-v0.1.sh
 COPY scripts/agent-loop-with-conflict-recovery.sh /app/agent-loop-with-conflict-recovery.sh
+
+# v0.2 脚本（多 Agent 协作）
+COPY scripts/agent-coordinator.sh /app/agent-coordinator.sh
+COPY scripts/agent-messaging.sh /app/agent-messaging.sh
+COPY scripts/agent-heartbeat.sh /app/agent-heartbeat.sh
+COPY scripts/agent-v0.2.sh /app/agent-v0.2.sh
+COPY scripts/agent-pm-loop.sh /app/agent-pm-loop.sh
+COPY scripts/agent-coder-loop.sh /app/agent-coder-loop.sh
+COPY scripts/agent-reviewer-loop.sh /app/agent-reviewer-loop.sh
+
+# 复制角色配置
 COPY .agent/roles/ /app/roles/
 
+# 设置执行权限
 RUN chmod +x /app/*.sh
 
 # 创建必要目录
-RUN mkdir -p /workspace/.agent/{tasks,conflicts,notifications,shared-memory}
+RUN mkdir -p /workspace/.agent/{tasks,conflicts,notifications,shared-memory} \
+    && mkdir -p /workspace/.agent/tasks/{pending,assigned,in-progress,review,completed} \
+    && mkdir -p /workspace/.agent/messages/{inbox,outbox,archive} \
+    && mkdir -p /workspace/.agent/heartbeat \
+    && mkdir -p /workspace/.agent/coordination
 
-# 入口
-ENTRYPOINT ["/app/agent-v0.1.sh"]
+# 入口（默认使用 v0.2）
+ENTRYPOINT ["/app/agent-v0.2.sh"]
 # 默认启动交互模式（无参数）

@@ -29,7 +29,8 @@ check_pending_conflicts() {
     echo "检查是否有未解决的冲突..."
 
     # 查找当前 Agent 的未解决冲突
-    for report in .agent/conflicts/*.yaml 2>/dev/null; do
+    for report in .agent/conflicts/*.yaml; do
+        [ -e "$report" ] || continue
         if [ -f "$report" ]; then
             STATUS=$(grep "^status:" "$report" | awk '{print $2}')
             if [ "$STATUS" = "pending" ]; then
@@ -155,7 +156,8 @@ EOF
 # 查找可用任务
 find_available_task() {
     # 查找未锁定的待办任务
-    for task in .agent/tasks/pending/*.yaml 2>/dev/null; do
+    for task in .agent/tasks/pending/*.yaml; do
+        [ -e "$task" ] || continue
         if [ -f "$task" ]; then
             local task_id=$(basename "$task" .yaml)
             local lock_file=".agent/tasks/in-progress/${task_id}.lock"

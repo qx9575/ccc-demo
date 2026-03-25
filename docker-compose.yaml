@@ -1,11 +1,14 @@
 version: '3.8'
 
 services:
+  # ============================================
+  # Coder Agent - 程序员
+  # ============================================
   agent-coder:
     build:
       context: .
       dockerfile: Dockerfile
-    image: agent-v0.1:latest
+    image: agent-v0.2:latest
     container_name: agent-coder
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
@@ -15,28 +18,70 @@ services:
       - AGENT_ROLE=coder
       - AGENT_NAME=程序员
       - WORKSPACE=/workspace
+      - POLL_INTERVAL=30
     volumes:
       - ./:/workspace
     working_dir: /workspace
     stdin_open: true
     tty: true
-    # 启动交互模式（无参数）
+    command: ["/app/agent-v0.2.sh", "--run"]
+    networks:
+      - agent-network
 
-  # PM Agent（v0.2 多 Agent 时启用）
-  # agent-pm:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #   image: agent-v0.1:latest
-  #   container_name: agent-pm
-  #   environment:
-  #     - OPENAI_API_KEY=${OPENAI_API_KEY}
-  #     - AGENT_ID=pm-agent-1
-  #     - AGENT_ROLE=pm
-  #     - AGENT_NAME=项目经理
-  #   volumes:
-  #     - ./:/workspace
-  #   working_dir: /workspace
-  #   stdin_open: true
-  #   tty: true
-  #   command: ["/app/agent-v0.1.sh"]
+  # ============================================
+  # PM Agent - 项目经理
+  # ============================================
+  agent-pm:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: agent-v0.2:latest
+    container_name: agent-pm
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://maas-api.ai-yuanjing.com/openapi/compatible-mode/v1}
+      - OPENAI_MODEL=${OPENAI_MODEL:-glm-4-plus}
+      - AGENT_ID=pm-agent-1
+      - AGENT_ROLE=pm
+      - AGENT_NAME=项目经理
+      - WORKSPACE=/workspace
+      - POLL_INTERVAL=60
+    volumes:
+      - ./:/workspace
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    command: ["/app/agent-v0.2.sh", "--run"]
+    networks:
+      - agent-network
+
+  # ============================================
+  # Reviewer Agent - 代码审查员
+  # ============================================
+  agent-reviewer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: agent-v0.2:latest
+    container_name: agent-reviewer
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://maas-api.ai-yuanjing.com/openapi/compatible-mode/v1}
+      - OPENAI_MODEL=${OPENAI_MODEL:-glm-4-plus}
+      - AGENT_ID=reviewer-agent-1
+      - AGENT_ROLE=reviewer
+      - AGENT_NAME=代码审查员
+      - WORKSPACE=/workspace
+      - POLL_INTERVAL=30
+    volumes:
+      - ./:/workspace
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    command: ["/app/agent-v0.2.sh", "--run"]
+    networks:
+      - agent-network
+
+networks:
+  agent-network:
+    driver: bridge
