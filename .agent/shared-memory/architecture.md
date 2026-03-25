@@ -72,8 +72,7 @@ ccc-demo/
 │   │   ├── pending/               # 待认领
 │   │   ├── assigned/              # 已分配
 │   │   ├── in-progress/           # 进行中
-│   │   ├── review/                # 待审查
-│   │   └── completed/             # 已完成
+│   │   └── review/                # 待审查
 │   ├── messages/                  # Agent 间消息
 │   │   ├── inbox/{agent-id}/      # 收件箱
 │   │   ├── outbox/                # 发件箱

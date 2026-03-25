@@ -124,8 +124,12 @@ resolution_summary: <解决说明>
 │   ├── in-progress/       # 进行中
 │   │   ├── task-001.yaml
 │   │   └── task-001.lock  # 任务锁
-│   ├── completed/         # 已完成
+│   ├── review/            # 待审查
 │   └── blocked/           # 阻塞
+├── archives/              # 归档目录
+│   ├── tasks/             # 任务归档（按月）
+│   ├── tests/             # 测试归档
+│   └── commits/           # 提交记录归档
 └── shared-memory/         # 共享文档
     └── conflict-quick-reference.md
 ```
