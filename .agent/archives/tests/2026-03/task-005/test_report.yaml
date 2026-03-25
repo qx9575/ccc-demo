@@ -1,0 +1,77 @@
+# ============ 测试报告归档 ============
+task_id: task-005
+tested_at: 2026-03-25T11:41:58Z
+tested_by: archive-system
+test_runner: pytest
+
+# ============ 通过情况 ============
+result:
+  status: unknown
+  total_tests: unknown
+  passed: unknown
+  failed: unknown
+  skipped: unknown
+  duration: unknown
+  coverage: unknown
+
+# ============ 测试用例 ============
+test_cases:
+  - name: test_add
+    status: unknown
+    file: test_calculator.py
+  - name: test_subtract
+    status: unknown
+    file: test_calculator.py
+  - name: test_multiply
+    status: unknown
+    file: test_calculator.py
+  - name: test_divide
+    status: unknown
+    file: test_calculator.py
+  - name: test_divide_by_zero
+    status: unknown
+    file: test_calculator.py
+  - name: test_say_hello
+    status: unknown
+    file: test_hello.py
+  - name: test_say_hello_empty
+    status: unknown
+    file: test_hello.py
+  - name: test_say_hello_unicode
+    status: unknown
+    file: test_hello.py
+  - name: test_format_date
+    status: unknown
+    file: test_utils.py
+  - name: test_parse_json
+    status: unknown
+    file: test_utils.py
+  - name: test_format_upper
+    status: unknown
+    file: test_utils.py
+  - name: test_format_lower
+    status: unknown
+    file: test_utils.py
+  - name: test_format_reverse
+    status: unknown
+    file: test_utils.py
+  - name: test_format_capitalize
+    status: unknown
+    file: test_utils.py
+  - name: test_validate_email
+    status: unknown
+    file: test_validators.py
+  - name: test_validate_phone
+    status: unknown
+    file: test_validators.py
+
+# ============ 测试文件 ============
+test_files:
+  - tests/test_calculator.py
+  - tests/test_hello.py
+  - tests/test_utils.py
+  - tests/test_validators.py
+
+# ============ 原始输出 ============
+raw_output: |
+  
