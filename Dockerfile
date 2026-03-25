@@ -50,6 +50,13 @@ COPY scripts/agent-pm-loop.sh /app/agent-pm-loop.sh
 COPY scripts/agent-coder-loop.sh /app/agent-coder-loop.sh
 COPY scripts/agent-reviewer-loop.sh /app/agent-reviewer-loop.sh
 
+# 归档脚本
+COPY scripts/archive-task.sh /app/archive-task.sh
+COPY scripts/archive-utils.sh /app/archive-utils.sh
+
+# Git 提交模板
+COPY .git-commit-template /workspace/.git-commit-template
+
 # 复制角色配置
 COPY .agent/roles/ /app/roles/
 
@@ -61,7 +68,8 @@ RUN mkdir -p /workspace/.agent/{tasks,conflicts,notifications,shared-memory} \
     && mkdir -p /workspace/.agent/tasks/{pending,assigned,in-progress,review,completed} \
     && mkdir -p /workspace/.agent/messages/{inbox,outbox,archive} \
     && mkdir -p /workspace/.agent/heartbeat \
-    && mkdir -p /workspace/.agent/coordination
+    && mkdir -p /workspace/.agent/coordination \
+    && mkdir -p /workspace/.agent/archives/{tasks,tests,commits}
 
 # 入口（默认使用 v0.2）
 ENTRYPOINT ["/app/agent-v0.2.sh"]
