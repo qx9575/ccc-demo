@@ -7,6 +7,7 @@
 # - 提交代码
 # - 请求代码审查
 # - 处理审查反馈
+# - 归档完成的任务
 #
 # 用法: source scripts/agent-coder-loop.sh (由 agent-v0.2.sh 调用)
 
@@ -19,6 +20,13 @@ set -e
 CODER_POLL_INTERVAL="${CODER_POLL_INTERVAL:-30}"
 CODER_HEARTBEAT_INTERVAL="${CODER_HEARTBEAT_INTERVAL:-60}"
 MAX_RETRIES="${MAX_RETRIES:-3}"
+
+# 加载归档工具
+if [ -f "$SCRIPTS_DIR/archive-utils.sh" ]; then
+    source "$SCRIPTS_DIR/archive-utils.sh"
+elif [ -f "./scripts/archive-utils.sh" ]; then
+    source "./scripts/archive-utils.sh"
+fi
 
 # ============================================
 # Coder 初始化
@@ -316,6 +324,12 @@ coder_handle_review_result() {
 
     if [ "$result" = "approved" ]; then
         log_role "任务通过审查: $task_id"
+
+        # 归档完成的任务
+        if type archive_completed_task &>/dev/null; then
+            archive_completed_task "$task_id"
+        fi
+
         # 任务已完成，由 Reviewer 更新状态
     else
         log_role "任务需要修改: $task_id"

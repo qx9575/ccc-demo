@@ -7,6 +7,7 @@
 # - 提供审查意见
 # - 批准或驳回任务
 # - 维护代码质量
+# - 归档完成的任务
 #
 # 用法: source scripts/agent-reviewer-loop.sh (由 agent-v0.2.sh 调用)
 
@@ -18,6 +19,13 @@ set -e
 
 REVIEWER_POLL_INTERVAL="${REVIEWER_POLL_INTERVAL:-30}"
 REVIEW_STANDARDS="${REVIEW_STANDARDS:-.agent/review-standards.md}"
+
+# 加载归档工具
+if [ -f "$SCRIPTS_DIR/archive-utils.sh" ]; then
+    source "$SCRIPTS_DIR/archive-utils.sh"
+elif [ -f "./scripts/archive-utils.sh" ]; then
+    source "./scripts/archive-utils.sh"
+fi
 
 # ============================================
 # Reviewer 初始化
@@ -187,6 +195,11 @@ reviewer_send_result() {
     if [ "$result" = "approved" ]; then
         approve_task "$task_id" "$AGENT_ID"
         log_role "任务已批准: $task_id"
+
+        # 归档完成的任务
+        if type archive_completed_task &>/dev/null; then
+            archive_completed_task "$task_id"
+        fi
     else
         reject_task "$task_id" "$AGENT_ID" "$comments"
         log_role "任务已驳回: $task_id"

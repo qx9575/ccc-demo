@@ -43,8 +43,27 @@ ccc-demo/
 │   ├── agent-loop-with-conflict-recovery.sh  # 冲突恢复循环
 │   ├── simulate-conflict.sh       # 冲突模拟
 │   ├── verify-conflict-resolution.sh      # 冲突解决验证
-│   └── verify-conflict-resolution-v2.sh   # 冲突解决验证 v2
+│   ├── verify-conflict-resolution-v2.sh   # 冲突解决验证 v2
+│   ├── archive-task.sh           # 任务归档脚本
+│   └── archive-utils.sh          # 归档工具函数
 ├── .agent/
+│   ├── archives/                 # 归档目录
+│   │   ├── tasks/                # 任务归档
+│   │   │   ├── registry.yaml     # 全局任务索引
+│   │   │   └── 2026-03/          # 按月归档
+│   │   │       ├── task-xxx.yaml # 任务完整记录
+│   │   │       └── index.yaml    # 月度索引
+│   │   ├── tests/                # 测试归档
+│   │   │   ├── registry.yaml     # 全局测试索引
+│   │   │   └── 2026-03/
+│   │   │       └── task-xxx/     # 按任务组织
+│   │   │           ├── test_report.yaml   # 测试报告
+│   │   │           └── test_xxx.py        # 测试脚本快照
+│   │   └── commits/              # 提交记录归档
+│   │       ├── registry.yaml     # 全局提交索引
+│   │       └── 2026-03/
+│   │           ├── commit-xxx.yaml # 每次提交一条
+│   │           └── index.yaml
 │   ├── roles/
 │   │   ├── coder/config.yaml      # 程序员配置
 │   │   ├── pm/config.yaml         # 项目经理配置
