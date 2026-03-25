@@ -65,7 +65,7 @@ RUN chmod +x /app/*.sh
 
 # 创建必要目录
 RUN mkdir -p /workspace/.agent/{tasks,conflicts,notifications,shared-memory} \
-    && mkdir -p /workspace/.agent/tasks/{pending,assigned,in-progress,review,completed} \
+    && mkdir -p /workspace/.agent/tasks/{pending,assigned,in-progress,review} \
     && mkdir -p /workspace/.agent/messages/{inbox,outbox,archive} \
     && mkdir -p /workspace/.agent/heartbeat \
     && mkdir -p /workspace/.agent/coordination \
