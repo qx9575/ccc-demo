@@ -1,38 +1,14 @@
 id: task-005
-title: 添加字符串处理工具函数
+title: 测试归档流程
 priority: P1
 role: coder
 status: pending
-created_at: 2026-03-24T10:00:00Z
-created_by: pm-agent-1
+created_at: 2026-03-25T12:00:00Z
+created_by: pm
 
 acceptance_criteria:
-  - 创建 src/string_utils.py 文件
-  - 实现 truncate(text, max_length) 函数
-  - 实现 capitalize_words(text) 函数
-  - 实现 remove_whitespace(text) 函数
-  - 编写测试文件 tests/test_string_utils.py
-  - 所有测试通过
+  - 创建测试文件
+  - 验证归档脚本
 
 description: |
-  创建一个字符串处理工具模块：
-
-  1. 在 src/ 目录下创建 string_utils.py
-  2. 实现以下函数：
-
-     truncate(text: str, max_length: int) -> str
-     - 截断文本到指定长度
-     - 如果文本超过长度，添加 "..." 后缀
-     - 如果文本小于等于长度，原样返回
-
-     capitalize_words(text: str) -> str
-     - 将每个单词的首字母大写
-     - 其他字母小写
-
-     remove_whitespace(text: str) -> str
-     - 移除多余空白字符
-     - 多个连续空格变成一个
-     - 移除首尾空白
-
-  3. 在 tests/ 目录下创建测试文件
-  4. 运行测试确保通过
+  测试任务完成后是否正确归档到 archives 目录
