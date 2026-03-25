@@ -87,7 +87,11 @@ $description
 现在开始执行任务。"
 
     # 调用 AI 执行任务
-    local response=$(chat "$prompt")
+    log_role "调用 AI 执行任务..."
+    log_info "提示词长度: ${#prompt} 字符"
+
+    # chat 函数的日志输出会被 $() 捕获，所以直接调用
+    chat "$prompt"
 
     # 检查执行结果
     if [ $? -eq 0 ]; then

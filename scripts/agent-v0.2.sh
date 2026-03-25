@@ -601,23 +601,29 @@ chat() {
     local user_message="$1"
     local role_prompt="${AGENT_PROMPT:-你是$AGENT_NAME，一个专业的$AGENT_ROLE角色。}"
 
+    log_info "=== chat() 函数开始 ==="
+
     local messages='[
         {"role": "system", "content": "'"$role_prompt"'。你有以下工具可用：file_read, file_write, shell_run。当需要创建或修改文件时，必须使用 file_write 工具。"},
         {"role": "user", "content": "'"$user_message"'"}
     ]'
 
     local tools=$(get_tools_definition)
+    log_info "工具定义长度: ${#tools} 字符"
 
     log_info "发送请求到 LLM（带工具）..."
     local response=$(call_glm "$messages" "$tools")
 
-    # 调试：打印响应的前 500 字符
-    log_info "API 响应预览: $(echo "$response" | head -c 500)"
+    # 调试：打印响应的前 300 字符
+    log_info "API 响应预览: $(echo "$response" | head -c 300)"
 
     # 检查是否有工具调用
     # 工具调用格式可能是 "tool_calls" 或 "function_call"
     local tool_calls=$(echo "$response" | grep -o '"tool_calls":\[.*\]' | head -1)
     local function_call=$(echo "$response" | grep -o '"function_call":{[^}]*}' | head -1)
+
+    log_info "tool_calls 检测: $([ -n "$tool_calls" ] && echo "找到" || echo "未找到")"
+    log_info "function_call 检测: $([ -n "$function_call" ] && echo "找到" || echo "未找到")"
 
     if [ -n "$tool_calls" ]; then
         log_info "检测到 tool_calls 调用"
