@@ -1,0 +1,16 @@
+id: msg-20260325100608-mjiyb6
+from: reviewer-agent-1
+to: pm-agent-1
+type: review_result
+priority: high
+created_at: 2026-03-25T10:06:08+00:00
+read_at: null
+acknowledged_at: null
+requires_ack: true
+content:
+  task_id: task-007
+  result: [0;31m[ERROR][0m 任务文件不存在: task-007
+  comments: |
+    代码需要修改。
+
+  action: review_result
