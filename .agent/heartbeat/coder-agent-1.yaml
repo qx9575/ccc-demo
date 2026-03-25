@@ -1,9 +1,9 @@
 agent_id: coder-agent-1
 role: coder
-status: idle
+status: active
 current_task: task-008
-last_heartbeat: 2026-03-25T13:59:02+00:00
-started_at: 2026-03-25T13:56:29+00:00
+last_heartbeat: 2026-03-25T13:59:44+00:00
+started_at: 2026-03-25T13:59:29+00:00
 metadata:
-  hostname: db893077dbee
+  hostname: c8b4d9aa39ab
   pid: 1
