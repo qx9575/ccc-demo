@@ -9,7 +9,7 @@
 3. **创建任务**：在 `.agent/tasks/pending/` 创建任务文件
 4. **分配任务**：设置任务的 `role` 字段指定负责人
 5. **跟踪进度**：检查 `.agent/tasks/in-progress/` 了解进度
-6. **验收完成**：审查 `.agent/tasks/completed/` 的任务
+6. **验收完成**：审查 `.agent/archives/tasks/` 归档的已完成任务
 
 ## 任务文件格式
 
@@ -77,3 +77,35 @@ resolution_summary: null
 1. 验证解决方案是否合理
 2. 检查相关任务是否完成
 3. 必要时重新分配任务
+
+## 归档系统
+
+### 任务归档位置
+
+完成的任务归档在 `.agent/archives/tasks/` 目录：
+```
+.agent/archives/tasks/
+├── registry.yaml        # 全局任务索引
+└── 2026-03/             # 按月归档
+    ├── task-xxx.yaml    # 任务完整记录
+    └── index.yaml       # 月度索引
+```
+
+### 查看归档任务
+
+```bash
+# 查看任务索引
+cat .agent/archives/tasks/registry.yaml
+
+# 查看特定任务
+cat .agent/archives/tasks/2026-03/task-xxx.yaml
+```
+
+### 归档内容包括
+
+- 任务基本信息（ID、标题、优先级、角色）
+- 完整生命周期（创建、开始、提交、审查、完成时间）
+- 验收标准及完成状态
+- 产出物列表（代码文件、测试报告）
+- 提交记录关联
+- 审查历史

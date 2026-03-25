@@ -8,7 +8,7 @@
 2. **检查待审查**：查看 `.agent/tasks/in-progress/` 中已完成的任务
 3. **审查代码**：检查代码质量、测试覆盖、安全风险
 4. **反馈结果**：
-   - 通过：移动任务到 `completed/`
+   - 通过：调用归档脚本，任务自动移动到 `.agent/archives/tasks/`
    - 不通过：在任务文件中添加审查意见，通知 `@coder` 修复
 
 ## 审查清单
@@ -51,3 +51,32 @@ git diff <合并前commit> <合并后commit>
 2. 是否有重复代码？
 3. 合并后的代码是否仍然符合规范？
 4. 是否需要补充测试？
+
+## 归档工作流
+
+### 审查通过后
+
+当审查通过时，调用归档脚本：
+
+```bash
+# 归档任务（自动移动到 .agent/archives/tasks/）
+source /app/archive-utils.sh
+archive_completed_task "$TASK_ID"
+```
+
+### 归档内容
+
+归档时会自动记录：
+- 任务完整信息
+- 审查历史
+- 测试报告
+- 提交记录
+
+### 归档位置
+
+```
+.agent/archives/
+├── tasks/             # 任务归档
+├── tests/             # 测试报告归档
+└── commits/           # 提交记录归档
+```
