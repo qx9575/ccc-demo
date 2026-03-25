@@ -134,17 +134,19 @@ git_atomic_push() {
 get_task_state() {
     local task_id="$1"
 
-    # Check each state directory
+    # First check for task yaml files in each state directory
     for state in pending assigned in-progress review; do
         if [ -f "$TASKS_DIR/$state/${task_id}.yaml" ]; then
             echo "$state"
             return 0
         fi
-        if [ -f "$TASKS_DIR/$state/${task_id}.lock" ]; then
-            echo "in-progress"  # Locked means in-progress
-            return 0
-        fi
     done
+
+    # Then check for lock files (only in in-progress)
+    if [ -f "$TASKS_DIR/in-progress/${task_id}.lock" ]; then
+        echo "in-progress"  # Locked means in-progress
+        return 0
+    fi
 
     # Check archives
     local month=$(date +"%Y-%m")
