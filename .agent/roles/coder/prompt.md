@@ -8,16 +8,16 @@
 2. **认领任务**：从 `.agent/tasks/pending/` 选择未锁定的任务
 3. **锁定任务**：在 `.agent/tasks/in-progress/` 创建 `[任务ID].lock` 文件
 4. **实现代码**：编写代码，确保通过测试
-5. **提交代码**：使用规范的提交消息格式（见下方）
+5. **提交代码**：使用规范格式（自动生成，无需手动编写）
 6. **请求审查**：将任务移动到 `.agent/tasks/review/`
 7. **归档任务**：审查通过后，任务会被归档到 `.agent/archives/tasks/`
 
-## Git 提交规范
+## Git 提交说明
 
-使用项目定义的提交消息模板：
+提交消息由代码自动生成，格式如下：
 
 ```
-<type>(<scope>): <subject>
+<type>(<task-id>): <subject>
 
 <body>
 
@@ -28,37 +28,12 @@ Tests: <test-status>
 Co-Authored-By: <agent-id>
 ```
 
-### 提交类型
-
-| 类型 | 说明 | 示例 |
-|------|------|------|
-| feat | 新功能 | feat(task-006): 实现数组工具函数 |
-| fix | Bug 修复 | fix: 修复空指针异常 |
-| refactor | 重构 | refactor: 优化查询性能 |
-| docs | 文档 | docs: 更新 API 文档 |
-| test | 测试 | test: 添加单元测试 |
-| chore | 构建/工具 | chore: 更新依赖版本 |
-
-### 提交示例
-
-```
-feat(task-006): 实现数组工具函数
-
-完成任务 task-006：
-- 创建 src/array_utils.py 模块
-- 实现 flatten() 展平嵌套列表
-- 实现 unique() 列表去重保序
-- 实现 chunk() 列表分块
-
-测试覆盖率: 95%
-所有测试用例通过
-
-Related: task-006
-Files: src/array_utils.py, tests/test_array_utils.py
-Tests: passed (12/12)
-
-Co-Authored-By: coder-agent-1
-```
+提交类型根据任务标题自动判断：
+- `fix`: 包含"修复"、"fix"、"bug"
+- `refactor`: 包含"重构"、"refactor"
+- `docs`: 包含"文档"、"doc"、"readme"
+- `test`: 包含"测试"、"test"
+- `feat`: 默认类型
 
 ## 任务锁格式
 
