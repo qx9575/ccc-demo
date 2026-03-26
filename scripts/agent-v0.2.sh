@@ -28,6 +28,33 @@ OPENAI_MODEL="${OPENAI_MODEL:-glm-5}"
 AGENT_ID="${AGENT_ID:-agent-$(hostname)}"
 AGENT_ROLE="${AGENT_ROLE:-coder}"
 AGENT_NAME="${AGENT_NAME:-程序员}"
+
+# ============================================
+# JSON 工具函数
+# ============================================
+
+# 转义字符串用于 JSON（处理换行符等特殊字符）
+json_escape() {
+    local str="$1"
+    # 使用 sed 进行转义，逐个替换特殊字符
+    # 注意：必须按顺序处理，先处理反斜杠
+    local result=""
+    local char=""
+    local i=0
+    while [ $i -lt ${#str} ]; do
+        char="${str:$i:1}"
+        case "$char" in
+            '\\') result="${result}\\\\" ;;
+            '"') result="${result}\\\"" ;;
+            $'\t') result="${result}\\t" ;;
+            $'\r') result="${result}\\r" ;;
+            $'\n') result="${result}\\n" ;;
+            *) result="${result}${char}" ;;
+        esac
+        i=$((i + 1))
+    done
+    printf '%s' "$result"
+}
 AGENT_STATUS="${AGENT_STATUS:-idle}"
 CURRENT_TASK="${CURRENT_TASK:-}"
 
@@ -400,12 +427,41 @@ call_glm() {
     for i in $(seq 1 $max_retries); do
         log_info "API 调用尝试 $i/$max_retries..."
 
+        # 追加完整请求响应到调试日志
+        local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+        {
+            echo ""
+            echo "========================================"
+            echo "=== [$timestamp] API 请求 $i/$max_retries ==="
+            echo "========================================"
+            echo "URL: ${OPENAI_BASE_URL}/chat/completions"
+            echo "Model: $OPENAI_MODEL"
+            echo "Payload 长度: ${#payload}"
+            echo ""
+            echo "--- 完整 Payload ---"
+            echo "$payload"
+            echo ""
+        } >> /tmp/api_debug.log
+
         local response=$(curl -s -X POST \
             "${OPENAI_BASE_URL}/chat/completions" \
             -H "Authorization: Bearer $OPENAI_API_KEY" \
             -H "Content-Type: application/json" \
             -d "$payload" \
             --max-time 120 2>&1)
+
+        # 追加完整响应到调试日志
+        {
+            echo "--- 完整 Response ---"
+            echo "Response 长度: ${#response}"
+            echo ""
+            echo "$response"
+            echo ""
+            echo "========================================"
+            echo ""
+        } >> /tmp/api_debug.log
+
+        log_info "响应长度: ${#response}"
 
         # 检查 curl 是否成功
         local curl_exit_code=$?
@@ -430,6 +486,11 @@ call_glm() {
 
             case "$error_type" in
                 "$ERROR_TYPE_RATE_LIMIT")
+                    # 限流，保存完整响应用于分析
+                    echo "$response" > /tmp/rate_limit_response.json
+                    log_warn "API 错误 ($error_type): $error_msg"
+                    log_warn "完整响应已保存到 /tmp/rate_limit_response.json"
+                    log_warn "响应内容: $response"
                     # 限流，等待重试
                     retry_delay=$(calculate_retry_delay "$base_delay" "$((i-1))" "$error_type")
                     log_warn "等待 ${retry_delay}s 后重试 ($i/$max_retries)..."
@@ -536,42 +597,100 @@ get_tools_definition() {
     ]'
 }
 
-# 处理工具调用
-handle_tool_calls() {
-    local response="$1"
-    local tool_calls_json=$(echo "$response" | grep -o '"tool_calls":\[.*\]' | head -1)
+# 提取 JSON 字符串值的函数（处理转义引号）
+# 用法: extract_json_string "json_text" "key_name"
+# 返回 key 对应的字符串值（不包含外层引号）
+extract_json_string() {
+    local json="$1"
+    local key="$2"
 
-    if [ -z "$tool_calls_json" ]; then
+    # 找到 "key":" 后的位置
+    local pattern="\"$key\"[[:space:]]*:[[:space:]]*\""
+    local start=$(echo "$json" | grep -o "$pattern" | head -1)
+
+    if [ -z "$start" ]; then
         return 1
     fi
 
-    # 提取工具调用信息
-    local tool_name=$(echo "$response" | sed -n 's/.*"function":{ *"name":"\([^"]*\)".*/\1/p')
-    local tool_args=$(echo "$response" | sed -n 's/.*"arguments":"\({[^}]*}\)".*/\1/p')
+    # 提取从 key 开始的字符串
+    local remaining=$(echo "$json" | sed "s/.*\"$key\"[[:space:]]*:[[:space:]]*\"//")
 
-    log_info "工具调用: $tool_name"
-    log_info "参数: $tool_args"
+    # 遍历找到结束引号（处理转义）
+    local result=""
+    local i=0
+    local len=${#remaining}
+    local in_escape=0
 
-    # 去除转义
-    local clean_args=$(echo "$tool_args" | sed 's/\\"/"/g')
+    while [ $i -lt $len ]; do
+        local char="${remaining:$i:1}"
+        if [ "$in_escape" -eq 1 ]; then
+            result="${result}${char}"
+            in_escape=0
+        elif [ "$char" = "\\" ]; then
+            result="${result}${char}"
+            in_escape=1
+        elif [ "$char" = '"' ]; then
+            # 找到结束引号
+            break
+        else
+            result="${result}${char}"
+        fi
+        i=$((i + 1))
+    done
 
-    # 执行工具
+    echo "$result"
+    return 0
+}
+
+# 处理工具调用 - 返回 JSON 格式的工具调用 ID 和结果
+# 输出格式: {"id":"call_xxx","name":"xxx","result":"xxx"}
+# 注意：所有日志输出到 stderr，只有最终的 JSON 结果输出到 stdout
+handle_tool_calls() {
+    local response="$1"
+
+    # 提取 tool_calls 数组部分
+    local tool_calls_section=$(echo "$response" | sed -n '/"tool_calls":\[/,/\]/p')
+
+    # 提取第一个工具调用的 id 和 name
+    local tool_id=$(echo "$tool_calls_section" | grep -o '"id":"[^"]*"' | head -1 | sed 's/"id":"//;s/"$//')
+    local tool_name=$(echo "$tool_calls_section" | grep -o '"name":"[^"]*"' | head -1 | sed 's/"name":"//;s/"$//')
+
+    # 使用自定义函数提取 arguments
+    local tool_args=$(extract_json_string "$tool_calls_section" "arguments")
+
+    if [ -z "$tool_name" ]; then
+        log_warn "无法提取工具调用信息" >&2
+        echo '{"id":"","name":"","result":"error: cannot parse tool call"}'
+        return 1
+    fi
+
+    log_info "工具调用: $tool_name (id: $tool_id)" >&2
+    log_info "参数: $tool_args" >&2
+
+    # 去除转义：将 \" 转换为 "，将 \\ 转换为 \
+    # 注意：tool_args 格式如 {\"filename\": \"value\"}
+    local clean_args=$(printf '%s' "$tool_args" | sed 's/\\"/"/g')
+
+    log_info "清理后参数: $clean_args" >&2
+
+    local tool_result=""
+
     case "$tool_name" in
         "file_read")
             local filename=$(echo "$clean_args" | sed -n 's/.*"filename"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
             if [ -f "$filename" ]; then
-                log_info "读取文件: $filename"
-                cat "$filename"
+                log_info "读取文件: $filename" >&2
+                tool_result=$(cat "$filename" 2>&1)
             else
-                log_error "文件不存在: $filename"
-                echo "错误: 文件 $filename 不存在"
+                log_error "文件不存在: $filename" >&2
+                tool_result="错误: 文件 $filename 不存在"
             fi
             ;;
         "file_write")
             local filename=$(echo "$clean_args" | sed -n 's/.*"filename"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
             # content 需要特殊处理，提取整个 content 字段
             local content=$(echo "$clean_args" | sed -n 's/.*"content"[[:space:]]*:[[:space:]]*"\(.*\)".*/\1/p' | sed 's/\\n/\n/g' | sed 's/\\t/\t/g')
-            log_info "写入文件: $filename"
+            log_info "写入文件: $filename" >&2
 
             # 确保目录存在
             local dir=$(dirname "$filename")
@@ -580,76 +699,146 @@ handle_tool_calls() {
             fi
 
             echo -e "$content" > "$filename"
-            log_info "文件写入成功: $filename"
-            echo "成功写入文件: $filename"
+            log_info "文件写入成功: $filename" >&2
+            tool_result="成功写入文件: $filename"
             ;;
         "shell_run")
             local command=$(echo "$clean_args" | sed -n 's/.*"command"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-            log_info "执行命令: $command"
-            eval "$command" 2>&1
+            log_info "执行命令: $command" >&2
+            tool_result=$(eval "$command" 2>&1)
             ;;
         *)
-            log_warn "未知工具: $tool_name"
-            echo "未知工具: $tool_name"
+            log_warn "未知工具: $tool_name" >&2
+            tool_result="未知工具: $tool_name"
             ;;
     esac
 
+    # 转义结果用于 JSON
+    local escaped_result=$(json_escape "$tool_result")
+
+    # 返回 JSON 格式的结果（只有这个输出到 stdout）
+    echo "{\"id\":\"$tool_id\",\"name\":\"$tool_name\",\"result\":\"$escaped_result\"}"
     return 0
 }
 
 chat() {
     local user_message="$1"
     local role_prompt="${AGENT_PROMPT:-你是$AGENT_NAME，一个专业的$AGENT_ROLE角色。}"
+    local max_turns=20  # 最大对话轮数，防止无限循环
 
     log_info "=== chat() 函数开始 ==="
 
+    # 转义字符串用于 JSON（处理换行符等特殊字符）
+    local escaped_prompt=$(json_escape "$role_prompt")
+    local escaped_message=$(json_escape "$user_message")
+
+    # 初始化消息数组 - 使用简单的追加方式
     local messages='[
-        {"role": "system", "content": "'"$role_prompt"'。你有以下工具可用：file_read, file_write, shell_run。当需要创建或修改文件时，必须使用 file_write 工具。"},
-        {"role": "user", "content": "'"$user_message"'"}
+        {"role": "system", "content": "'"$escaped_prompt"'。你有以下工具可用：file_read, file_write, shell_run。当需要创建或修改文件时，必须使用 file_write 工具。"},
+        {"role": "user", "content": "'"$escaped_message"'"}
     ]'
 
     local tools=$(get_tools_definition)
     log_info "工具定义长度: ${#tools} 字符"
 
-    log_info "发送请求到 LLM（带工具）..."
-    local response=$(call_glm "$messages" "$tools")
+    local turn=0
+    while [ $turn -lt $max_turns ]; do
+        turn=$((turn + 1))
+        log_info "=== 对话轮次 $turn ==="
 
-    # 调试：打印响应的前 300 字符
-    log_info "API 响应预览: $(echo "$response" | head -c 300)"
+        log_info "发送请求到 LLM（带工具）..."
+        local response=$(call_glm "$messages" "$tools")
 
-    # 检查是否有工具调用
-    # 工具调用格式可能是 "tool_calls" 或 "function_call"
-    local tool_calls=$(echo "$response" | grep -o '"tool_calls":\[.*\]' | head -1)
-    local function_call=$(echo "$response" | grep -o '"function_call":{[^}]*}' | head -1)
+        # 调试：打印响应的前 300 字符
+        log_info "API 响应预览: $(echo "$response" | head -c 300)"
 
-    log_info "tool_calls 检测: $([ -n "$tool_calls" ] && echo "找到" || echo "未找到")"
-    log_info "function_call 检测: $([ -n "$function_call" ] && echo "找到" || echo "未找到")"
+        # 检查 finish_reason
+        local finish_reason=$(echo "$response" | grep -o '"finish_reason":"[^"]*"' | head -1 | sed 's/"finish_reason":"//;s/"$//')
+        log_info "finish_reason: $finish_reason"
 
-    if [ -n "$tool_calls" ]; then
-        log_info "检测到 tool_calls 调用"
-        handle_tool_calls "$response"
-    elif [ -n "$function_call" ]; then
-        log_info "检测到 function_call 调用"
-        # 处理旧版 function_call 格式
-        local tool_name=$(echo "$function_call" | sed -n 's/.*"name":"\([^"]*\)".*/\1/p')
-        local tool_args=$(echo "$function_call" | sed -n 's/.*"arguments":"\([^"]*\)".*/\1/p')
-        log_info "工具: $tool_name, 参数: $tool_args"
+        # 检查是否有工具调用
+        local tool_calls=$(echo "$response" | grep -o '"tool_calls":\[' | head -1)
+        local function_call=$(echo "$response" | grep -o '"function_call":{' | head -1)
 
-        # 构造兼容的响应格式并调用处理函数
-        local fake_response='{"tool_calls":[{"id":"call_1","type":"function","function":{"name":"'"$tool_name"'","arguments":"'"$tool_args"'"}}]}'
-        handle_tool_calls "$fake_response"
-    else
-        # 提取回复内容
-        local content=$(echo "$response" | grep -o '"content":"[^"]*"' | head -1 | sed 's/"content":"//;s/"$//')
-        if [ -n "$content" ]; then
-            log_agent "$content"
-            # 如果模型只返回文本而没有使用工具，记录警告
-            log_warn "模型返回文本而非工具调用，请检查模型是否支持 function calling"
+        log_info "tool_calls 检测: $([ -n "$tool_calls" ] && echo "找到" || echo "未找到")"
+        log_info "function_call 检测: $([ -n "$function_call" ] && echo "找到" || echo "未找到")"
+
+        if [ -n "$tool_calls" ]; then
+            log_info "检测到 tool_calls 调用"
+
+            # 执行工具调用并获取结果
+            local tool_result=$(handle_tool_calls "$response")
+
+            # 提取工具调用信息用于构建消息
+            local tool_id=$(echo "$tool_result" | sed 's/.*"id":"\([^"]*\)".*/\1/')
+            local tool_name=$(echo "$tool_result" | sed 's/.*"name":"\([^"]*\)".*/\1/')
+            # 使用 extract_json_string 正确提取包含特殊字符的 result
+            local tool_output=$(extract_json_string "$tool_result" "result")
+
+            log_info "工具执行结果: ${tool_output:0:100}..."
+
+            # 从原始响应中提取完整的 arguments（使用自定义函数）
+            local tool_calls_section=$(echo "$response" | sed -n '/"tool_calls":\[/,/\]/p')
+            local tool_args=$(extract_json_string "$tool_calls_section" "arguments")
+            # 如果没有提取到 arguments，使用空对象
+            if [ -z "$tool_args" ]; then
+                tool_args="{}"
+            fi
+
+            # 添加 assistant 消息（包含 tool_calls）和 tool 消息到对话历史
+            local escaped_tool_output=$(json_escape "$tool_output")
+
+            # 构建新的消息追加到数组
+            # assistant 消息需要包含完整的 tool_calls 信息
+            local assistant_msg='{"role":"assistant","content":"","tool_calls":[{"id":"'"$tool_id"'","type":"function","function":{"name":"'"$tool_name"'","arguments":"'"$tool_args"'"}}]}'
+            local tool_msg='{"role":"tool","tool_call_id":"'"$tool_id"'","content":"'"$escaped_tool_output"'"}'
+
+            # 追加到 messages 数组
+            # 移除最后的 ]，添加新消息，再加回 ]
+            messages=$(echo "$messages" | sed 's/]$//')
+            messages="$messages, $assistant_msg, $tool_msg]"
+
+            log_info "继续对话，等待模型响应..."
+
+        elif [ -n "$function_call" ]; then
+            log_info "检测到 function_call 调用（旧版格式）"
+            # 处理旧版 function_call 格式
+            local fc_name=$(echo "$response" | grep -o '"name":"[^"]*"' | head -1 | sed 's/"name":"//;s/"$//')
+            local fc_args=$(echo "$response" | grep -o '"arguments":"[^"]*"' | head -1 | sed 's/"arguments":"//;s/"$//')
+            log_info "工具: $fc_name, 参数: $fc_args"
+
+            # 构造兼容的响应格式并调用处理函数
+            local fake_response='{"tool_calls":[{"id":"call_'$turn'","type":"function","function":{"name":"'"$fc_name"'","arguments":"'"$fc_args"'"}}}'
+            local tool_result=$(handle_tool_calls "$fake_response")
+
+            local tool_output=$(echo "$tool_result" | sed 's/.*"result":"\([^"]*\)".*/\1/')
+            local escaped_tool_output=$(json_escape "$tool_output")
+
+            # 添加消息到历史
+            local assistant_msg='{"role":"assistant","content":"","function_call":{"name":"'"$fc_name"'","arguments":"'"$fc_args"'"}}'
+            local tool_msg='{"role":"function","name":"'"$fc_name"'","content":"'"$escaped_tool_output"'"}'
+
+            messages=$(echo "$messages" | sed 's/]$//')
+            messages="$messages, $assistant_msg, $tool_msg]"
+
+            log_info "继续对话，等待模型响应..."
+
         else
-            log_error "API 调用失败"
-            log_error "完整响应: $response"
+            # 没有工具调用，检查是否有文本回复
+            local content=$(echo "$response" | grep -o '"content":"[^"]*"' | head -1 | sed 's/"content":"//;s/"$//')
+            if [ -n "$content" ]; then
+                log_agent "$content"
+                log_info "对话完成，模型返回最终回复"
+                return 0
+            else
+                log_warn "模型返回空响应"
+                return 1
+            fi
         fi
-    fi
+    done
+
+    log_warn "达到最大对话轮数 ($max_turns)，强制结束"
+    return 0
 }
 
 # ============================================
