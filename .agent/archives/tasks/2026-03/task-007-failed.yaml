@@ -1,0 +1,67 @@
+id: task-007
+title: 添加日期时间工具函数
+priority: P1
+role: coder
+status: changes_requested
+created_at: 2026-03-25T10:05:00Z
+created_by: human
+
+acceptance_criteria:
+  - 创建 src/datetime_utils.py 文件
+  - 实现 format_date(dt, format) 函数
+  - 实现 parse_date(date_string, format) 函数
+  - 实现 days_between(date1, date2) 函数
+  - 编写测试文件 tests/test_datetime_utils.py
+
+description: |
+  创建一个日期时间处理工具模块：
+
+  1. 在 src/ 目录下创建 datetime_utils.py
+  2. 实现以下函数：
+
+     format_date(dt: datetime, format: str) -> str
+     - 将日期对象格式化为字符串
+     
+     parse_date(date_string: str, format: str) -> datetime
+     - 将字符串解析为日期对象
+     
+     days_between(date1: datetime, date2: datetime) -> int
+     - 计算两个日期之间的天数差
+
+  3. 在 tests/ 目录下创建测试文件
+
+# State transition at 2026-03-25T10:05:46+00:00
+updated_at: 2026-03-25T10:05:46+00:00
+updated_by: coder-agent-1
+
+review:
+  rejected_by: reviewer-agent-1
+  rejected_at: 2026-03-25T10:06:08+00:00
+  rejection_reason: 代码需要修改。
+
+# State transition at 2026-03-25T11:35:49+00:00
+updated_at: 2026-03-25T11:35:49+00:00
+updated_by: coder-agent-1
+
+review:
+  rejected_by: reviewer-agent-1
+  rejected_at: 2026-03-25T11:36:17+00:00
+  rejection_reason: 代码需要修改。
+
+# State transition at 2026-03-25T11:38:09+00:00
+updated_at: 2026-03-25T11:38:09+00:00
+updated_by: coder-agent-1
+
+review:
+  rejected_by: reviewer-agent-1
+  rejected_at: 2026-03-25T11:38:25+00:00
+  rejection_reason: 代码需要修改。
+
+# State transition at 2026-03-25T12:39:14+00:00
+updated_at: 2026-03-25T12:39:14+00:00
+updated_by: coder-agent-1
+
+review:
+  rejected_by: reviewer-agent-1
+  rejected_at: 2026-03-25T12:40:09+00:00
+  rejection_reason: 代码需要修改。

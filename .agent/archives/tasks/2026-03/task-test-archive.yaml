@@ -1,0 +1,19 @@
+id: task-test-archive
+title: 测试归档系统完整流程
+priority: P0
+role: coder
+status: pending
+created_at: 2026-03-25T12:00:00Z
+created_by: pm
+
+acceptance_criteria:
+  - 验证任务归档到 archives/tasks/
+  - 验证测试文件归档
+  - 验证提交记录归档
+
+description: |
+  创建一个简单的工具函数，测试完整的任务流程：
+  1. Coder 认领并执行任务
+  2. 提交代码到 review
+  3. Reviewer 批准任务
+  4. 任务归档到 archives 目录
