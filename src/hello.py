@@ -1,9 +1,19 @@
-"""Hello 模块 - 提供简单的问候功能"""
-
-def say_hello(name: str) -> str:
-    """生成问候语"""
-    return f"Hello, {name}!"
-
-def say_goodbye(name: str) -> str:
-    """Agent 1 添加: 告别语"""
-    return f"Goodbye, {name}!"
+\"\"\"\
+简单的问候模块\
+\"\"\"\
+\
+\
+def greet(name: str) -> str:\
+    \"\"\"返回问候语\"\"\"\
+    return f\"Hello, {name}!\"\
+\
+\
+def main():\
+    \"\"\"主函数\"\"\"\
+    message = greet(\"World\")\
+    print(message)\
+    return message\
+\
+\
+if __name__ == \"__main__\":\
+    main()
